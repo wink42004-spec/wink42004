@@ -11,16 +11,26 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       locale={zhCN}
       theme={{
         token: {
-          colorPrimary: '#2563eb',
+          colorPrimary: '#0ea5e9',
           borderRadius: 8,
-          colorBgLayout: '#f4f7fb',
+          colorBgLayout: '#edf3f8',
+          colorSuccess: '#16a34a',
+          colorWarning: '#ca8a04',
+          colorError: '#dc2626',
           fontFamily:
             'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         },
         components: {
           Layout: {
-            headerBg: '#ffffff',
-            bodyBg: '#f4f7fb',
+            headerBg: '#08111f',
+            bodyBg: '#edf3f8',
+          },
+          Button: {
+            controlHeight: 34,
+          },
+          Table: {
+            headerBg: '#f2f7fb',
+            rowHoverBg: '#f8fbff',
           },
         },
       }}

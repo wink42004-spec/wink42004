@@ -7,7 +7,10 @@ import type { DashboardScreenData, WeeklyDeliveryView } from '../types/shared';
 const { Content } = Layout;
 
 function money(value: number) {
-  return `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `¥${value.toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 export function DashboardScreen({ onBack }: { onBack: () => void }) {
@@ -32,21 +35,43 @@ export function DashboardScreen({ onBack }: { onBack: () => void }) {
     <Layout className="screen-shell">
       <Content className="screen-content">
         <div className="screen-header">
-          <Typography.Title level={2}>公众号投放监控大屏</Typography.Title>
+          <div>
+            <Typography.Title level={2}>公众号投放监控大屏</Typography.Title>
+            <p>Real-time shared campaign signal board</p>
+          </div>
           <Button onClick={onBack}>返回看板</Button>
         </div>
         <div className="screen-kpi-grid">
-          <article onClick={() => openDetail('本周投放金额')}><Statistic title="本周投放" value={data.weeklyKpi.spendAmount} prefix="¥" /></article>
-          <article onClick={() => openDetail('本周阅读量')}><Statistic title="阅读量" value={data.weeklyKpi.readCount} /></article>
-          <article onClick={() => openDetail('本周获客')}><Statistic title="获客" value={data.weeklyKpi.leads} /></article>
-          <article onClick={() => openDetail('本周 ROI')}><Statistic title="ROI" value={data.weeklyKpi.roi} precision={2} /></article>
+          <article onClick={() => openDetail('本周投放金额')}>
+            <Statistic title="本周投放" value={data.weeklyKpi.spendAmount} prefix="¥" />
+          </article>
+          <article onClick={() => openDetail('本周阅读量')}>
+            <Statistic title="阅读量" value={data.weeklyKpi.readCount} />
+          </article>
+          <article onClick={() => openDetail('本周获客')}>
+            <Statistic title="获客" value={data.weeklyKpi.leads} />
+          </article>
+          <article onClick={() => openDetail('本周 ROI')}>
+            <Statistic title="ROI" value={data.weeklyKpi.roi} precision={2} />
+          </article>
         </div>
         <div className="history-chart-grid">
-          <section className="history-chart-card" onClick={() => openDetail('ROI 趋势')}><LineChart color="#38bdf8" data={data.roiTrend} title="ROI 趋势" /></section>
-          <section className="history-chart-card" onClick={() => openDetail('获客成本趋势')}><LineChart color="#22c55e" data={data.leadCostTrend} title="获客成本趋势" valueFormatter={(value) => money(Number(value))} /></section>
+          <section className="history-chart-card screen-chart" onClick={() => openDetail('ROI 趋势')}>
+            <LineChart color="#38bdf8" data={data.roiTrend} title="ROI 趋势" />
+          </section>
+          <section className="history-chart-card screen-chart" onClick={() => openDetail('获客成本趋势')}>
+            <LineChart
+              color="#22c55e"
+              data={data.leadCostTrend}
+              title="获客成本趋势"
+              valueFormatter={(value) => money(Number(value))}
+            />
+          </section>
         </div>
-        <section className="history-section">
-          <div className="history-section-header"><Typography.Text strong>账号排行</Typography.Text></div>
+        <section className="history-section screen-section">
+          <div className="history-section-header">
+            <Typography.Text strong>账号排行</Typography.Text>
+          </div>
           <Table
             dataSource={data.accountRanking}
             rowKey="id"

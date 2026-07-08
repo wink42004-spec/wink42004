@@ -1,4 +1,4 @@
-import { Button, Layout, Modal, Space, Tabs, Typography, Upload, message } from 'antd';
+import { Button, Layout, Modal, Space, Tabs, Tag, Typography, Upload, message } from 'antd';
 import { useState } from 'react';
 import { TeacherManager } from '../components/TeacherManager';
 import { TeacherSelect } from '../components/TeacherSelect';
@@ -23,10 +23,15 @@ export function Dashboard({ onEnterScreen }: DashboardProps) {
   return (
     <Layout className="app-shell">
       <Header className="dashboard-header">
-        <Typography.Title className="dashboard-title" level={1}>
-          公众号投放监控共享看板
-        </Typography.Title>
-        <Space wrap>
+        <div className="dashboard-heading">
+          <Typography.Title className="dashboard-title" level={1}>
+            公众号投放监控共享看板
+          </Typography.Title>
+          <span className="dashboard-subtitle">
+            Shared campaign intelligence console
+          </span>
+        </div>
+        <Space className="dashboard-actions" wrap>
           <TeacherSelect />
           <Button onClick={() => setTeacherManagerOpen(true)}>老师管理</Button>
           <Button onClick={() => setUploadOpen(true)}>上传数据</Button>
@@ -37,10 +42,18 @@ export function Dashboard({ onEnterScreen }: DashboardProps) {
       </Header>
       <Content className="dashboard-content">
         <section className="overview-panel">
-          <h2 className="overview-title">共享投放数据</h2>
-          <p className="overview-copy">
-            当前操作人：{currentOperator.name}。所有人查看同一套共享数据，新增、修改、上传、删除会记录操作人和审计时间。
-          </p>
+          <div>
+            <Tag className="overview-tag">LIVE OPERATIONS</Tag>
+            <h2 className="overview-title">共享投放数据中枢</h2>
+            <p className="overview-copy">
+              当前操作人：{currentOperator.name}。所有人查看同一套共享数据，新增、修改、上传、删除都会写入审计记录。
+            </p>
+          </div>
+          <div className="overview-signal" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
         </section>
         <section className="tabs-panel">
           <Tabs
