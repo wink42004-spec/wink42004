@@ -29,14 +29,14 @@ export function LoginPage({ onDone, onRegister }: LoginPageProps) {
       <Card className="auth-card">
         <Typography.Title level={2}>登录投放看板</Typography.Title>
         <Typography.Paragraph>
-          访客可直接进入演示模式；注册用户需经 wyt 审核后查看真实数据。
+          访客可直接进入演示模式；注册用户需审核通过后查看真实数据。
         </Typography.Paragraph>
         <Form layout="vertical" onFinish={(values) => void submit(values)}>
           <Form.Item name="username" label="用户名" rules={[{ required: true }]}>
-            <Input placeholder="wyt" />
+            <Input placeholder="请输入用户名" autoComplete="username" />
           </Form.Item>
           <Form.Item name="password" label="密码" rules={[{ required: true }]}>
-            <Input.Password placeholder="wyt123456" />
+            <Input.Password placeholder="请输入密码" autoComplete="current-password" />
           </Form.Item>
           <Button block type="primary" htmlType="submit" loading={loading}>
             登录
@@ -44,10 +44,7 @@ export function LoginPage({ onDone, onRegister }: LoginPageProps) {
           <Button block type="link" onClick={onRegister}>
             注册新账号
           </Button>
-          <Button
-            block
-            onClick={() => void continueAsGuest().then(onDone)}
-          >
+          <Button block onClick={() => void continueAsGuest().then(onDone)}>
             以访客模式进入
           </Button>
         </Form>

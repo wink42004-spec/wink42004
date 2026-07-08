@@ -18,9 +18,7 @@ export function AuditLogTab() {
     () =>
       logs.filter((log) => {
         const matchType = actionType ? log.actionType === actionType : true;
-        const matchDate = date
-          ? dayjs(log.time).isSame(date, 'day')
-          : true;
+        const matchDate = date ? dayjs(log.time).isSame(date, 'day') : true;
         return matchType && matchDate;
       }),
     [actionType, date, logs],
@@ -29,7 +27,7 @@ export function AuditLogTab() {
   const columns: ColumnsType<AuditLog> = [
     { title: '时间', dataIndex: 'time', width: 170 },
     { title: '操作老师', dataIndex: 'operatorName', width: 110 },
-    { title: '操作类型', dataIndex: 'actionType', width: 120 },
+    { title: '操作类型', dataIndex: 'actionType', width: 130 },
     { title: '模块', dataIndex: 'module', width: 120 },
     { title: '对象', dataIndex: 'target', width: 180 },
     { title: '修改前', dataIndex: 'before', ellipsis: true },
@@ -44,11 +42,11 @@ export function AuditLogTab() {
           placeholder="操作类型"
           value={actionType}
           onChange={setActionType}
-          options={['新增', '修改', '上传', '删除', '刷新阅读量'].map((value) => ({
+          options={['新增', '修改', '上传', '删除', '自动更新阅读量'].map((value) => ({
             label: value,
             value,
           }))}
-          style={{ width: 160 }}
+          style={{ width: 170 }}
         />
         <DatePicker value={date} onChange={setDate} placeholder="操作日期" />
       </Space>

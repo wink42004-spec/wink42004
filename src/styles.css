@@ -192,6 +192,34 @@ body {
   padding-top: 4px;
 }
 
+.data-section {
+  overflow: hidden;
+  border: 1px solid #dfe8f3;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 10px;
+}
+
+.section-heading h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 760;
+}
+
+.section-heading span {
+  color: #64748b;
+  font-size: 13px;
+}
+
 .toolbar-label,
 .upload-hint {
   color: #64748b;

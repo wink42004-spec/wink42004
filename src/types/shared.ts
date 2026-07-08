@@ -39,6 +39,7 @@ export interface WeeklyDelivery extends AuditFields {
   accountName: string;
   deliveryTime: string;
   articleTitle: string;
+  courseCode?: string;
   articleUrl?: string;
   spendAmount: number;
   readCount: number;
@@ -64,6 +65,7 @@ export interface NextWeekPlan extends AuditFields {
   accountName: string;
   plannedTime: string;
   articleTitle: string;
+  courseCode?: string;
   articleUrl?: string;
   plannedAmount: number;
   layoutStatus: LayoutStatus;
@@ -110,9 +112,20 @@ export interface AuditLog {
   id: string;
   time: string;
   operatorName: string;
-  actionType: '新增' | '修改' | '上传' | '删除' | '刷新阅读量';
-  module: '本周投放' | '下周排期' | '老师管理';
+  actionType: '新增' | '修改' | '上传' | '删除' | '自动更新阅读量';
+  module: '本期投放' | '下期投放' | '老师管理';
   target: string;
+  before: string;
+  after: string;
+}
+
+export interface VersionRecord {
+  id: string;
+  module: '本期投放' | '下期投放';
+  targetId: string;
+  targetName: string;
+  versionTime: string;
+  operatorName: string;
   before: string;
   after: string;
 }

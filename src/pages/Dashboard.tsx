@@ -29,10 +29,13 @@ export function Dashboard({
 }: DashboardProps) {
   const { currentUser } = useAuthContext();
   const { currentOperator } = useDashboardContext();
-  const canViewData =
-    currentUser.status === 'guest' || currentUser.status === 'approved' || currentUser.isAdmin;
   const [teacherManagerOpen, setTeacherManagerOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+
+  const canViewData =
+    currentUser.status === 'guest' ||
+    currentUser.status === 'approved' ||
+    currentUser.isAdmin;
 
   return (
     <Layout className="app-shell">
@@ -53,7 +56,9 @@ export function Dashboard({
           />
           <TeacherSelect />
           <Button onClick={() => setTeacherManagerOpen(true)}>老师管理</Button>
-          <Button disabled={!canViewData} onClick={() => setUploadOpen(true)}>上传数据</Button>
+          <Button disabled={!canViewData} onClick={() => setUploadOpen(true)}>
+            上传数据
+          </Button>
           <Button disabled={!canViewData} onClick={onEnterScreen} type="primary">
             进入大屏
           </Button>
@@ -69,7 +74,7 @@ export function Dashboard({
             <p className="overview-copy">
               {currentUser.status === 'guest'
                 ? '当前为访客模式，展示模拟数据。'
-                : `当前操作人：${currentOperator.name}。所有人查看同一套共享数据，新增、修改、上传、删除都会写入审计记录。`}
+                : `当前操作人：${currentOperator.name}。所有人查看同一套共享数据，新增、修改、上传、删除都会写入修改记录。`}
             </p>
           </div>
           <div className="overview-signal" aria-hidden="true">
@@ -87,8 +92,8 @@ export function Dashboard({
             <Tabs
               defaultActiveKey="weekly"
               items={[
-                { key: 'weekly', label: '本周投放', children: <WeeklyTab /> },
-                { key: 'nextWeek', label: '下周排期', children: <NextWeekTab /> },
+                { key: 'weekly', label: '本期投放', children: <WeeklyTab /> },
+                { key: 'nextWeek', label: '下期投放', children: <NextWeekTab /> },
                 { key: 'history', label: '历史汇总', children: <HistoryTab /> },
                 { key: 'audit', label: '修改记录', children: <AuditLogTab /> },
               ]}
@@ -112,7 +117,7 @@ export function Dashboard({
           beforeUpload={(file) => {
             void file.text().then((text) =>
               uploadWeeklyCsv(text, currentOperator.name).then(() => {
-                message.success('已上传到本周投放');
+                message.success('已上传到本期投放，并自动更新阅读量');
                 setUploadOpen(false);
               }),
             );
@@ -121,7 +126,7 @@ export function Dashboard({
         >
           <p>拖拽或点击上传 CSV</p>
           <p className="upload-hint">
-            格式：周起始日期,账号,投放时间,标题,金额,阅读量,加微量,成交量,成交金额
+            格式：周起始日期,账号,投放时间,标题,投放课程,文章链接,投放金额,阅读量,加微量,成交量,成交金额
           </p>
         </Upload.Dragger>
       </Modal>

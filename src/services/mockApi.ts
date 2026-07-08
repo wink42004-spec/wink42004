@@ -9,6 +9,7 @@ import type {
   NextWeekPlan,
   PaymentStatus,
   Teacher,
+  VersionRecord,
   WeeklyDelivery,
   WeeklyDeliveryView,
 } from '../types/shared';
@@ -35,6 +36,7 @@ const mockGuestWeeklyRows: WeeklyDelivery[] = [
     accountName: '模拟账号 A',
     deliveryTime: '2026-07-06 10:30',
     articleTitle: '模拟投放：暑期学习规划指南',
+    courseCode: 'MOCK-101',
     articleUrl: 'https://example.com/mock-a',
     spendAmount: 6800,
     readCount: 42800,
@@ -49,6 +51,7 @@ const mockGuestWeeklyRows: WeeklyDelivery[] = [
     accountName: '模拟账号 B',
     deliveryTime: '2026-07-07 19:45',
     articleTitle: '模拟投放：家长决策链路拆解',
+    courseCode: 'MOCK-202',
     articleUrl: 'https://example.com/mock-b',
     spendAmount: 5200,
     readCount: 26600,
@@ -66,6 +69,7 @@ const realCompanyWeeklyRows: WeeklyDelivery[] = [
     accountName: '职场增长实验室',
     deliveryTime: '2026-07-06 10:30',
     articleTitle: '30 天建立高质量学习闭环',
+    courseCode: 'GROW-30',
     articleUrl: 'https://example.com/real-growth',
     spendAmount: 12800,
     readCount: 86400,
@@ -80,6 +84,7 @@ const realCompanyWeeklyRows: WeeklyDelivery[] = [
     accountName: '认知跃迁笔记',
     deliveryTime: '2026-07-07 19:45',
     articleTitle: '升学规划变化里的信息差',
+    courseCode: 'EDU-INFO',
     articleUrl: 'https://example.com/real-note',
     spendAmount: 9600,
     readCount: 52100,
@@ -94,26 +99,13 @@ const realCompanyWeeklyRows: WeeklyDelivery[] = [
     accountName: '家庭教育每日谈',
     deliveryTime: '2026-07-08 09:15',
     articleTitle: '孩子拖延背后的真实原因',
+    courseCode: 'FAM-001',
     articleUrl: 'https://example.com/real-family',
     spendAmount: 11200,
     readCount: 62300,
     wechatAdds: 970,
     dealCount: 86,
     dealAmount: 29200,
-  },
-  {
-    ...auditBase,
-    id: 'real-weekly-4',
-    weekStartDate: '2026-06-29',
-    accountName: '教育观察员',
-    deliveryTime: '2026-07-02 15:20',
-    articleTitle: '新高一选科长期方向',
-    articleUrl: 'https://example.com/real-education',
-    spendAmount: 6200,
-    readCount: 24800,
-    wechatAdds: 210,
-    dealCount: 9,
-    dealAmount: 4200,
   },
 ];
 
@@ -124,6 +116,7 @@ const mockGuestPlans: NextWeekPlan[] = [
     accountName: '模拟账号 A',
     plannedTime: '2026-07-13 10:30',
     articleTitle: '模拟排期：学习状态重建',
+    courseCode: 'MOCK-303',
     articleUrl: 'https://example.com/mock-plan-a',
     plannedAmount: 7000,
     layoutStatus: 'processing',
@@ -139,6 +132,7 @@ const realCompanyPlans: NextWeekPlan[] = [
     accountName: '职场增长实验室',
     plannedTime: '2026-07-13 10:30',
     articleTitle: '暑期后半程学习状态重建',
+    courseCode: 'GROW-SUMMER',
     articleUrl: 'https://example.com/plan-growth',
     plannedAmount: 15800,
     layoutStatus: 'done',
@@ -151,6 +145,7 @@ const realCompanyPlans: NextWeekPlan[] = [
     accountName: '升学情报站',
     plannedTime: '2026-07-14 08:50',
     articleTitle: '新初三关键节点',
+    courseCode: 'SCHOOL-9',
     articleUrl: 'https://example.com/plan-school',
     plannedAmount: 8600,
     layoutStatus: 'published',
@@ -163,6 +158,7 @@ let guestWeeklyRows = [...mockGuestWeeklyRows];
 let realWeeklyRows = [...realCompanyWeeklyRows];
 let guestPlans = [...mockGuestPlans];
 let realPlans = [...realCompanyPlans];
+let versionRecords: VersionRecord[] = [];
 
 let auditLogs: AuditLog[] = [
   {
@@ -170,7 +166,7 @@ let auditLogs: AuditLog[] = [
     time: now,
     operatorName: '张老师',
     actionType: '新增',
-    module: '本周投放',
+    module: '本期投放',
     target: '职场增长实验室',
     before: '-',
     after: '初始化投放数据',
@@ -178,9 +174,7 @@ let auditLogs: AuditLog[] = [
 ];
 
 function delay(ms = 260) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function timestamp() {
@@ -202,11 +196,8 @@ function weeklyStore() {
 }
 
 function setWeeklyStore(rows: WeeklyDelivery[]) {
-  if (canReadRealData()) {
-    realWeeklyRows = rows;
-  } else {
-    guestWeeklyRows = rows;
-  }
+  if (canReadRealData()) realWeeklyRows = rows;
+  else guestWeeklyRows = rows;
 }
 
 function planStore() {
@@ -214,11 +205,8 @@ function planStore() {
 }
 
 function setPlanStore(rows: NextWeekPlan[]) {
-  if (canReadRealData()) {
-    realPlans = rows;
-  } else {
-    guestPlans = rows;
-  }
+  if (canReadRealData()) realPlans = rows;
+  else guestPlans = rows;
 }
 
 function writeAudit(
@@ -244,15 +232,34 @@ function writeAudit(
   ];
 }
 
+function writeVersion(
+  module: VersionRecord['module'],
+  targetId: string,
+  targetName: string,
+  operatorName: string,
+  before: unknown,
+  after: unknown,
+) {
+  versionRecords = [
+    {
+      id: `version-${Date.now()}-${Math.random()}`,
+      module,
+      targetId,
+      targetName,
+      versionTime: timestamp(),
+      operatorName,
+      before: typeof before === 'string' ? before : JSON.stringify(before),
+      after: typeof after === 'string' ? after : JSON.stringify(after),
+    },
+    ...versionRecords,
+  ];
+}
+
 function withUpdate<T extends { updatedBy: string; updatedAt: string }>(
   row: T,
   operatorName: string,
 ) {
-  return {
-    ...row,
-    updatedBy: operatorName,
-    updatedAt: timestamp(),
-  };
+  return { ...row, updatedBy: operatorName, updatedAt: timestamp() };
 }
 
 function toWeeklyView(row: WeeklyDelivery): WeeklyDeliveryView {
@@ -268,6 +275,21 @@ function toWeeklyView(row: WeeklyDelivery): WeeklyDeliveryView {
 function getAllWeeklyViews() {
   if (!canReadAnyData()) return [];
   return weeklyStore().map(toWeeklyView);
+}
+
+function autoUpdateUploadedReadCount(row: WeeklyDelivery, operatorName: string) {
+  const before = row.readCount;
+  const after = before + Math.floor(Math.max(before, 1000) * 0.08);
+  const updated = withUpdate({ ...row, readCount: after }, operatorName);
+  writeAudit(
+    operatorName,
+    '自动更新阅读量',
+    '本期投放',
+    row.accountName,
+    before,
+    after,
+  );
+  return updated;
 }
 
 export async function getTeachers() {
@@ -316,7 +338,7 @@ export async function createWeeklyData(
     updatedAt: timestamp(),
   };
   setWeeklyStore([row, ...weeklyStore()]);
-  writeAudit(operatorName, '新增', '本周投放', row.accountName, '-', row);
+  writeAudit(operatorName, '新增', '本期投放', row.accountName, '-', row);
   return toWeeklyView(row);
 }
 
@@ -331,7 +353,8 @@ export async function updateWeeklyData(
   if (!before) throw new Error('未找到投放记录');
   const after = withUpdate({ ...before, ...patch }, operatorName);
   setWeeklyStore(rows.map((row) => (row.id === rowId ? after : row)));
-  writeAudit(operatorName, '修改', '本周投放', after.accountName, before, after);
+  writeAudit(operatorName, '修改', '本期投放', after.accountName, before, after);
+  writeVersion('本期投放', after.id, after.accountName, operatorName, before, after);
   return toWeeklyView(after);
 }
 
@@ -340,38 +363,7 @@ export async function deleteWeeklyData(rowId: string, operatorName: string) {
   const rows = weeklyStore();
   const before = rows.find((row) => row.id === rowId);
   setWeeklyStore(rows.filter((row) => row.id !== rowId));
-  writeAudit(
-    operatorName,
-    '删除',
-    '本周投放',
-    before?.accountName ?? rowId,
-    before ?? '-',
-    '-',
-  );
-}
-
-export async function refreshReadCount(rowId: string, operatorName: string) {
-  await delay();
-  const rows = weeklyStore();
-  const before = rows.find((row) => row.id === rowId);
-  if (!before) throw new Error('未找到投放记录');
-  const after = withUpdate(
-    {
-      ...before,
-      readCount: before.readCount + Math.floor(before.readCount * 0.04) + 300,
-    },
-    operatorName,
-  );
-  setWeeklyStore(rows.map((row) => (row.id === rowId ? after : row)));
-  writeAudit(
-    operatorName,
-    '刷新阅读量',
-    '本周投放',
-    after.accountName,
-    before.readCount,
-    after.readCount,
-  );
-  return toWeeklyView(after);
+  writeAudit(operatorName, '删除', '本期投放', before?.accountName ?? rowId, before ?? '-', '-');
 }
 
 export async function uploadWeeklyCsv(text: string, operatorName: string) {
@@ -382,12 +374,13 @@ export async function uploadWeeklyCsv(text: string, operatorName: string) {
     accountName: cols[1] || '未命名账号',
     deliveryTime: cols[2] || timestamp(),
     articleTitle: cols[3] || '未命名标题',
-    articleUrl: cols[4] || undefined,
-    spendAmount: Number(cols[5]) || 0,
-    readCount: Number(cols[6]) || 0,
-    wechatAdds: Number(cols[7]) || 0,
-    dealCount: Number(cols[8]) || 0,
-    dealAmount: Number(cols[9]) || 0,
+    courseCode: cols[4] || undefined,
+    articleUrl: cols[5] || undefined,
+    spendAmount: Number(cols[6]) || 0,
+    readCount: Number(cols[7]) || 0,
+    wechatAdds: Number(cols[8]) || 0,
+    dealCount: Number(cols[9]) || 0,
+    dealAmount: Number(cols[10]) || 0,
     createdBy: operatorName,
     createdAt: timestamp(),
     updatedBy: operatorName,
@@ -395,8 +388,9 @@ export async function uploadWeeklyCsv(text: string, operatorName: string) {
     uploadedBy: operatorName,
     uploadedAt: timestamp(),
   }));
-  setWeeklyStore([...rows, ...weeklyStore()]);
-  writeAudit(operatorName, '上传', '本周投放', 'CSV', '-', `导入 ${rows.length} 条`);
+  const updatedRows = rows.map((row) => autoUpdateUploadedReadCount(row, operatorName));
+  setWeeklyStore([...updatedRows, ...weeklyStore()]);
+  writeAudit(operatorName, '上传', '本期投放', 'CSV', '-', `导入 ${rows.length} 条`);
 }
 
 export async function getNextWeekPlan() {
@@ -420,7 +414,7 @@ export async function createPlan(
     updatedAt: timestamp(),
   };
   setPlanStore([...planStore(), row]);
-  writeAudit(operatorName, '新增', '下周排期', row.accountName, '-', row);
+  writeAudit(operatorName, '新增', '下期投放', row.accountName, '-', row);
   return row;
 }
 
@@ -435,7 +429,8 @@ export async function updatePlan(
   if (!before) throw new Error('未找到排期');
   const after = withUpdate({ ...before, ...patch }, operatorName);
   setPlanStore(rows.map((row) => (row.id === planId ? after : row)));
-  writeAudit(operatorName, '修改', '下周排期', after.accountName, before, after);
+  writeAudit(operatorName, '修改', '下期投放', after.accountName, before, after);
+  writeVersion('下期投放', after.id, after.accountName, operatorName, before, after);
   return after;
 }
 
@@ -444,7 +439,7 @@ export async function deletePlan(planId: string, operatorName: string) {
   const rows = planStore();
   const before = rows.find((row) => row.id === planId);
   setPlanStore(rows.filter((row) => row.id !== planId));
-  writeAudit(operatorName, '删除', '下周排期', before?.accountName ?? planId, before ?? '-', '-');
+  writeAudit(operatorName, '删除', '下期投放', before?.accountName ?? planId, before ?? '-', '-');
 }
 
 export async function uploadPlanCsv(text: string, operatorName: string) {
@@ -454,10 +449,11 @@ export async function uploadPlanCsv(text: string, operatorName: string) {
     accountName: cols[0] || '未命名账号',
     plannedTime: cols[1] || timestamp(),
     articleTitle: cols[2] || '未命名标题',
-    articleUrl: cols[3] || undefined,
-    plannedAmount: Number(cols[4]) || 0,
-    layoutStatus: (cols[5] as NextWeekPlan['layoutStatus']) || 'pending',
-    paymentStatus: (cols[6] as PaymentStatus) || 'unpaid',
+    courseCode: cols[3] || undefined,
+    articleUrl: cols[4] || undefined,
+    plannedAmount: Number(cols[5]) || 0,
+    layoutStatus: (cols[6] as NextWeekPlan['layoutStatus']) || 'pending',
+    paymentStatus: (cols[7] as PaymentStatus) || 'unpaid',
     sortOrder: planStore().length + index + 1,
     createdBy: operatorName,
     createdAt: timestamp(),
@@ -467,7 +463,7 @@ export async function uploadPlanCsv(text: string, operatorName: string) {
     uploadedAt: timestamp(),
   }));
   setPlanStore([...planStore(), ...rows]);
-  writeAudit(operatorName, '上传', '下周排期', 'CSV', '-', `导入 ${rows.length} 条`);
+  writeAudit(operatorName, '上传', '下期投放', 'CSV', '-', `导入 ${rows.length} 条`);
 }
 
 export async function getAccountHistory(accountName: string) {
@@ -525,6 +521,13 @@ export async function getHistorySummary(): Promise<HistorySummary> {
 export async function getAuditLogs() {
   await delay();
   return canReadAnyData() ? [...auditLogs] : [];
+}
+
+export async function getVersionRecords(targetId?: string) {
+  await delay();
+  return targetId
+    ? versionRecords.filter((record) => record.targetId === targetId)
+    : [...versionRecords];
 }
 
 export async function mockGetDashboardTabData(

@@ -1,8 +1,8 @@
 export {
   createWeeklyData,
   deleteWeeklyData,
+  getVersionRecords,
   getWeeklyData,
-  refreshReadCount,
   updateWeeklyData,
   uploadWeeklyCsv,
 } from './mockApi';

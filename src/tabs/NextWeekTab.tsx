@@ -26,12 +26,18 @@ import {
   updatePlan,
   uploadPlanCsv,
 } from '../services/nextWeekService';
-import type { LayoutStatus, NextWeekPlan, PaymentStatus, WeeklyDeliveryView } from '../types/shared';
+import type {
+  LayoutStatus,
+  NextWeekPlan,
+  PaymentStatus,
+  WeeklyDeliveryView,
+} from '../types/shared';
 
 interface PlanFormValues {
   accountName: string;
   plannedTime: Dayjs;
   articleTitle: string;
+  courseCode?: string;
   articleUrl?: string;
   plannedAmount: number;
   layoutStatus: LayoutStatus;
@@ -88,7 +94,10 @@ function StatusTag({
 }
 
 function money(value: number) {
-  return `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `¥${value.toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 export function NextWeekTab() {
@@ -107,7 +116,9 @@ export function NextWeekTab() {
     setError(null);
     void getNextWeekPlan()
       .then(setRows)
-      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : '未知错误'))
+      .catch((reason: unknown) =>
+        setError(reason instanceof Error ? reason.message : '未知错误'),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -119,6 +130,7 @@ export function NextWeekTab() {
       accountName: '',
       plannedTime: dayjs().add(1, 'week').hour(10),
       articleTitle: '',
+      courseCode: '',
       articleUrl: '',
       plannedAmount: 0,
       layoutStatus: 'pending',
@@ -139,6 +151,7 @@ export function NextWeekTab() {
       accountName: values.accountName,
       plannedTime: values.plannedTime.format('YYYY-MM-DD HH:mm'),
       articleTitle: values.articleTitle,
+      courseCode: values.courseCode,
       articleUrl: values.articleUrl,
       plannedAmount: values.plannedAmount,
       layoutStatus: values.layoutStatus,
@@ -165,13 +178,35 @@ export function NextWeekTab() {
       {
         title: '账号',
         dataIndex: 'accountName',
-        render: (value: string) => <Button type="link" onClick={() => void openHistory(value)}>{value}</Button>,
+        render: (value: string) => (
+          <Button type="link" onClick={() => void openHistory(value)}>
+            {value}
+          </Button>
+        ),
         sorter: (a, b) => a.accountName.localeCompare(b.accountName),
-        width: 170,
+        width: 160,
       },
-      { title: '计划时间', dataIndex: 'plannedTime', sorter: (a, b) => dayjs(a.plannedTime).valueOf() - dayjs(b.plannedTime).valueOf(), width: 170 },
-      { title: '标题', dataIndex: 'articleTitle', sorter: (a, b) => a.articleTitle.localeCompare(b.articleTitle), width: 300 },
-      { title: '金额', dataIndex: 'plannedAmount', render: money, sorter: (a, b) => a.plannedAmount - b.plannedAmount, width: 130 },
+      {
+        title: '计划时间',
+        dataIndex: 'plannedTime',
+        render: (value: string) => dayjs(value).format('MM-DD HH:mm'),
+        sorter: (a, b) => dayjs(a.plannedTime).valueOf() - dayjs(b.plannedTime).valueOf(),
+        width: 110,
+      },
+      {
+        title: '标题',
+        dataIndex: 'articleTitle',
+        sorter: (a, b) => a.articleTitle.localeCompare(b.articleTitle),
+        width: 260,
+      },
+      { title: '投放课程', dataIndex: 'courseCode', width: 120 },
+      {
+        title: '投放金额',
+        dataIndex: 'plannedAmount',
+        render: money,
+        sorter: (a, b) => a.plannedAmount - b.plannedAmount,
+        width: 120,
+      },
       {
         title: '排版状态',
         dataIndex: 'layoutStatus',
@@ -187,8 +222,11 @@ export function NextWeekTab() {
               <StatusTag value={value as LayoutStatus} theme={layoutStatusTheme} />
             )}
             onChange={(layoutStatus) =>
-              void updatePlan(record.id, { layoutStatus }, currentOperator.name).then((nextRow) =>
-                setRows((prev) => prev.map((row) => (row.id === nextRow.id ? nextRow : row))),
+              void updatePlan(record.id, { layoutStatus }, currentOperator.name).then(
+                (nextRow) =>
+                  setRows((prev) =>
+                    prev.map((row) => (row.id === nextRow.id ? nextRow : row)),
+                  ),
               )
             }
           />
@@ -210,8 +248,11 @@ export function NextWeekTab() {
               <StatusTag value={value as PaymentStatus} theme={paymentStatusTheme} />
             )}
             onChange={(paymentStatus) =>
-              void updatePlan(record.id, { paymentStatus }, currentOperator.name).then((nextRow) =>
-                setRows((prev) => prev.map((row) => (row.id === nextRow.id ? nextRow : row))),
+              void updatePlan(record.id, { paymentStatus }, currentOperator.name).then(
+                (nextRow) =>
+                  setRows((prev) =>
+                    prev.map((row) => (row.id === nextRow.id ? nextRow : row)),
+                  ),
               )
             }
           />
@@ -224,9 +265,16 @@ export function NextWeekTab() {
         width: 130,
         render: (_, record) => (
           <Space>
-            <Button size="small" onClick={() => openEdit(record)}>编辑</Button>
-            <Popconfirm title="确认删除？" onConfirm={() => void deletePlan(record.id, currentOperator.name).then(load)}>
-              <Button danger size="small">删除</Button>
+            <Button size="small" onClick={() => openEdit(record)}>
+              编辑
+            </Button>
+            <Popconfirm
+              title="确认删除？"
+              onConfirm={() => void deletePlan(record.id, currentOperator.name).then(load)}
+            >
+              <Button danger size="small">
+                删除
+              </Button>
             </Popconfirm>
           </Space>
         ),
@@ -239,7 +287,9 @@ export function NextWeekTab() {
     <div className="next-week-tab">
       <div className="next-week-toolbar">
         <Space wrap>
-          <Button type="primary" onClick={openCreate}>新增排期</Button>
+          <Button type="primary" onClick={openCreate}>
+            新增排期
+          </Button>
           <Upload
             accept=".csv"
             showUploadList={false}
@@ -252,20 +302,57 @@ export function NextWeekTab() {
           </Upload>
         </Space>
       </div>
-      {error ? <Alert showIcon type="error" message="加载失败" description={error} /> : null}
-      <Table columns={columns} dataSource={rows} loading={loading} rowKey="id" scroll={{ x: 1000 }} />
-      <Modal title={editingRow ? '编辑排期' : '新增排期'} open={open} onCancel={() => setOpen(false)} onOk={() => void submit()} destroyOnClose>
+      {error ? (
+        <Alert showIcon type="error" message="加载失败" description={error} />
+      ) : null}
+      <Table
+        columns={columns}
+        dataSource={rows}
+        loading={loading}
+        rowKey="id"
+        scroll={{ x: 1200 }}
+      />
+      <Modal
+        title={editingRow ? '编辑排期' : '新增排期'}
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={() => void submit()}
+        destroyOnClose
+      >
         <Form form={form} layout="vertical">
-          <Form.Item name="accountName" label="账号" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="plannedTime" label="计划时间" rules={[{ required: true }]}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name="articleTitle" label="标题" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="articleUrl" label="文章链接"><Input placeholder="https://" /></Form.Item>
-          <Form.Item name="plannedAmount" label="金额"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name="layoutStatus" label="排版状态"><Select options={layoutOptions} /></Form.Item>
-          <Form.Item name="paymentStatus" label="付款状态"><Select options={paymentOptions} /></Form.Item>
+          <Form.Item name="accountName" label="账号" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="plannedTime" label="计划时间" rules={[{ required: true }]}>
+            <DatePicker showTime style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="articleTitle" label="投放标题" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="courseCode" label="投放课程">
+            <Input placeholder="courseCode" />
+          </Form.Item>
+          <Form.Item name="articleUrl" label="文章链接">
+            <Input placeholder="https://" />
+          </Form.Item>
+          <Form.Item name="plannedAmount" label="投放金额">
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="layoutStatus" label="排版状态">
+            <Select options={layoutOptions} />
+          </Form.Item>
+          <Form.Item name="paymentStatus" label="付款状态">
+            <Select options={paymentOptions} />
+          </Form.Item>
         </Form>
       </Modal>
-      <Modal title={`${historyAccount ?? '账号'}历史投放`} open={Boolean(historyAccount)} onCancel={() => setHistoryAccount(null)} footer={null} width={900}>
+      <Modal
+        title={`${historyAccount ?? '账号'}历史投放`}
+        open={Boolean(historyAccount)}
+        onCancel={() => setHistoryAccount(null)}
+        footer={null}
+        width={900}
+      >
         <Table
           dataSource={historyRows}
           rowKey="id"
@@ -273,7 +360,8 @@ export function NextWeekTab() {
           columns={[
             { title: '投放时间', dataIndex: 'deliveryTime' },
             { title: '标题', dataIndex: 'articleTitle' },
-            { title: '金额', dataIndex: 'spendAmount', render: money },
+            { title: '投放课程', dataIndex: 'courseCode' },
+            { title: '投放金额', dataIndex: 'spendAmount', render: money },
             { title: '阅读量', dataIndex: 'readCount' },
             { title: 'ROI', dataIndex: 'roi', render: (value: number) => value.toFixed(2) },
           ]}
