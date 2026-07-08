@@ -26,7 +26,7 @@ export function AuditLogTab() {
 
   const columns: ColumnsType<AuditLog> = [
     { title: '时间', dataIndex: 'time', width: 170 },
-    { title: '操作老师', dataIndex: 'operatorName', width: 110 },
+    { title: '操作账号', dataIndex: 'operatorName', width: 110 },
     { title: '操作类型', dataIndex: 'actionType', width: 130 },
     { title: '模块', dataIndex: 'module', width: 120 },
     { title: '对象', dataIndex: 'target', width: 180 },

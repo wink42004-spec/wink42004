@@ -1,11 +1,8 @@
 import { Button, Layout, Modal, Space, Tabs, Tag, Typography, Upload, message } from 'antd';
 import { useState } from 'react';
 import { PermissionNotice } from '../components/PermissionNotice';
-import { TeacherManager } from '../components/TeacherManager';
-import { TeacherSelect } from '../components/TeacherSelect';
 import { UserStatusBadge } from '../components/UserStatusBadge';
 import { useAuthContext } from '../context/AuthContext';
-import { useDashboardContext } from '../context/DashboardContext';
 import { uploadWeeklyCsv } from '../services/mockApi';
 import { AuditLogTab } from '../tabs/AuditLogTab';
 import { HistoryTab } from '../tabs/HistoryTab';
@@ -28,8 +25,6 @@ export function Dashboard({
   onReview,
 }: DashboardProps) {
   const { currentUser } = useAuthContext();
-  const { currentOperator } = useDashboardContext();
-  const [teacherManagerOpen, setTeacherManagerOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const canViewData =
@@ -54,8 +49,6 @@ export function Dashboard({
             onRegister={onRegister}
             onReview={onReview}
           />
-          <TeacherSelect />
-          <Button onClick={() => setTeacherManagerOpen(true)}>老师管理</Button>
           <Button disabled={!canViewData} onClick={() => setUploadOpen(true)}>
             上传数据
           </Button>
@@ -74,7 +67,7 @@ export function Dashboard({
             <p className="overview-copy">
               {currentUser.status === 'guest'
                 ? '当前为访客模式，展示模拟数据。'
-                : `当前操作人：${currentOperator.name}。所有人查看同一套共享数据，新增、修改、上传、删除都会写入修改记录。`}
+                : `当前账号：${currentUser.username}。所有人查看同一套共享数据，新增、修改、上传、删除都会写入修改记录。`}
             </p>
           </div>
           <div className="overview-signal" aria-hidden="true">
@@ -101,10 +94,6 @@ export function Dashboard({
           </section>
         )}
       </Content>
-      <TeacherManager
-        open={teacherManagerOpen}
-        onClose={() => setTeacherManagerOpen(false)}
-      />
       <Modal
         title="上传共享投放数据"
         open={uploadOpen}
@@ -116,7 +105,7 @@ export function Dashboard({
           showUploadList={false}
           beforeUpload={(file) => {
             void file.text().then((text) =>
-              uploadWeeklyCsv(text, currentOperator.name).then(() => {
+              uploadWeeklyCsv(text, currentUser.username).then(() => {
                 message.success('已上传到本期投放，并自动更新阅读量');
                 setUploadOpen(false);
               }),

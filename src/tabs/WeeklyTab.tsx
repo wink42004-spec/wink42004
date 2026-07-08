@@ -16,7 +16,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useDashboardContext } from '../context/DashboardContext';
+import { useAuthContext } from '../context/AuthContext';
 import { getNextWeekPlan } from '../services/nextWeekService';
 import {
   createWeeklyData,
@@ -144,7 +144,7 @@ function exportVersionCsv(rows: VersionRecord[], targetName: string) {
 }
 
 export function WeeklyTab() {
-  const { currentOperator } = useDashboardContext();
+  const { currentUser } = useAuthContext();
   const [form] = Form.useForm<WeeklyFormValues>();
   const [weekStartDate, setWeekStartDate] = useState(getCurrentMonday());
   const [rows, setRows] = useState<WeeklyDeliveryView[]>([]);
@@ -217,11 +217,11 @@ export function WeeklyTab() {
       const nextRow = await updateWeeklyData(
         editingRow.id,
         payload as Partial<WeeklyDelivery>,
-        currentOperator.name,
+        currentUser.username,
       );
       setRows((prev) => prev.map((row) => (row.id === nextRow.id ? nextRow : row)));
     } else {
-      const nextRow = await createWeeklyData(payload, currentOperator.name);
+      const nextRow = await createWeeklyData(payload, currentUser.username);
       setRows((prev) => [nextRow, ...prev]);
     }
     message.success('已保存');
@@ -348,7 +348,7 @@ export function WeeklyTab() {
             <Popconfirm
               title="确认删除？"
               onConfirm={() =>
-                void deleteWeeklyData(record.id, currentOperator.name).then(load)
+                void deleteWeeklyData(record.id, currentUser.username).then(load)
               }
             >
               <Button danger size="small">
@@ -359,7 +359,7 @@ export function WeeklyTab() {
         ),
       },
     ],
-    [currentOperator.name, load],
+    [currentUser.username, load],
   );
 
   const pendingColumns = useMemo<ColumnsType<NextWeekPlan>>(
@@ -413,7 +413,7 @@ export function WeeklyTab() {
             beforeUpload={(file) => {
               void file
                 .text()
-                .then((text) => uploadWeeklyCsv(text, currentOperator.name))
+                .then((text) => uploadWeeklyCsv(text, currentUser.username))
                 .then(() => {
                   message.success('上传成功，阅读量已自动更新并写入修改记录');
                   load();
@@ -529,7 +529,7 @@ export function WeeklyTab() {
           pagination={{ pageSize: 5 }}
           columns={[
             { title: '日期时间', dataIndex: 'versionTime', width: 170 },
-            { title: '操作老师', dataIndex: 'operatorName', width: 120 },
+            { title: '操作账号', dataIndex: 'operatorName', width: 120 },
             {
               title: '修改前',
               dataIndex: 'before',

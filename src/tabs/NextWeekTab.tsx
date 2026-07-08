@@ -17,7 +17,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useDashboardContext } from '../context/DashboardContext';
+import { useAuthContext } from '../context/AuthContext';
 import {
   createPlan,
   deletePlan,
@@ -101,7 +101,7 @@ function money(value: number) {
 }
 
 export function NextWeekTab() {
-  const { currentOperator } = useDashboardContext();
+  const { currentUser } = useAuthContext();
   const [form] = Form.useForm<PlanFormValues>();
   const [rows, setRows] = useState<NextWeekPlan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -158,10 +158,10 @@ export function NextWeekTab() {
       paymentStatus: values.paymentStatus,
     };
     if (editingRow) {
-      const nextRow = await updatePlan(editingRow.id, payload, currentOperator.name);
+      const nextRow = await updatePlan(editingRow.id, payload, currentUser.username);
       setRows((prev) => prev.map((row) => (row.id === nextRow.id ? nextRow : row)));
     } else {
-      const nextRow = await createPlan(payload, currentOperator.name);
+      const nextRow = await createPlan(payload, currentUser.username);
       setRows((prev) => [...prev, nextRow]);
     }
     message.success('已保存');
@@ -222,7 +222,7 @@ export function NextWeekTab() {
               <StatusTag value={value as LayoutStatus} theme={layoutStatusTheme} />
             )}
             onChange={(layoutStatus) =>
-              void updatePlan(record.id, { layoutStatus }, currentOperator.name).then(
+              void updatePlan(record.id, { layoutStatus }, currentUser.username).then(
                 (nextRow) =>
                   setRows((prev) =>
                     prev.map((row) => (row.id === nextRow.id ? nextRow : row)),
@@ -248,7 +248,7 @@ export function NextWeekTab() {
               <StatusTag value={value as PaymentStatus} theme={paymentStatusTheme} />
             )}
             onChange={(paymentStatus) =>
-              void updatePlan(record.id, { paymentStatus }, currentOperator.name).then(
+              void updatePlan(record.id, { paymentStatus }, currentUser.username).then(
                 (nextRow) =>
                   setRows((prev) =>
                     prev.map((row) => (row.id === nextRow.id ? nextRow : row)),
@@ -270,7 +270,7 @@ export function NextWeekTab() {
             </Button>
             <Popconfirm
               title="确认删除？"
-              onConfirm={() => void deletePlan(record.id, currentOperator.name).then(load)}
+              onConfirm={() => void deletePlan(record.id, currentUser.username).then(load)}
             >
               <Button danger size="small">
                 删除
@@ -280,7 +280,7 @@ export function NextWeekTab() {
         ),
       },
     ],
-    [currentOperator.name, load],
+    [currentUser.username, load],
   );
 
   return (
@@ -294,7 +294,7 @@ export function NextWeekTab() {
             accept=".csv"
             showUploadList={false}
             beforeUpload={(file) => {
-              void file.text().then((text) => uploadPlanCsv(text, currentOperator.name).then(load));
+              void file.text().then((text) => uploadPlanCsv(text, currentUser.username).then(load));
               return false;
             }}
           >
