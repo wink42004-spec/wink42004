@@ -13,36 +13,47 @@ import type {
   NextWeekPlan,
   PaymentStatus,
   Teacher,
+  UploadSourceType,
   VersionRecord,
   WeeklyDelivery,
   WeeklyDeliveryView,
 } from '../types/shared';
 
+const ACTION_CREATE = '\u65b0\u589e';
+const ACTION_UPDATE = '\u4fee\u6539';
+const ACTION_UPLOAD = '\u4e0a\u4f20';
+const ACTION_DELETE = '\u5220\u9664';
+const ACTION_RECALC = '\u91cd\u7b97\u516c\u5f0f';
+const MODULE_WEEKLY = '\u672c\u671f\u6295\u653e';
+const MODULE_NEXT = '\u4e0b\u671f\u6295\u653e';
+const MODULE_HISTORY = '\u5386\u53f2\u6c47\u603b';
+const MODULE_TEACHER = '\u8001\u5e08\u7ba1\u7406';
+
 const now = '2026-07-08 10:00';
 const auditBase = {
-  createdBy: '系统',
+  createdBy: 'system',
   createdAt: now,
-  updatedBy: '系统',
+  updatedBy: 'system',
   updatedAt: now,
 };
 
 let teachers: Teacher[] = [
-  { id: 'teacher-zhang', name: '张老师' },
-  { id: 'teacher-li', name: '李老师' },
-  { id: 'teacher-wang', name: '王老师' },
+  { id: 'teacher-zhang', name: 'Zhang' },
+  { id: 'teacher-li', name: 'Li' },
+  { id: 'teacher-wang', name: 'Wang' },
 ];
 
 const mockGuestWeeklyRows: WeeklyDelivery[] = [
   {
     ...auditBase,
     id: 'guest-weekly-1',
-    period: '2026-07 第一期',
+    period: '2026-07 P1',
     weekStartDate: '2026-07-06',
-    accountName: '模拟账号 A',
-    paymentChannel: '对公转账',
-    placement: '头条',
+    accountName: 'Demo Account A',
+    paymentChannel: 'Bank',
+    placement: 'Top',
     deliveryTime: '2026-07-06 10:30',
-    articleTitle: '模拟投放：暑期学习规划指南',
+    articleTitle: 'Demo campaign: summer planning',
     courseCode: 'MOCK-101',
     articleUrl: 'https://example.com/mock-a',
     spendAmount: 6800,
@@ -57,13 +68,13 @@ const mockGuestWeeklyRows: WeeklyDelivery[] = [
   {
     ...auditBase,
     id: 'guest-weekly-2',
-    period: '2026-07 第一期',
+    period: '2026-07 P1',
     weekStartDate: '2026-07-06',
-    accountName: '模拟账号 B',
-    paymentChannel: '微信',
-    placement: '次条',
+    accountName: 'Demo Account B',
+    paymentChannel: 'Wechat',
+    placement: 'Second',
     deliveryTime: '2026-07-07 19:45',
-    articleTitle: '模拟投放：家长决策链路拆解',
+    articleTitle: 'Demo campaign: parent decision path',
     courseCode: 'MOCK-202',
     articleUrl: 'https://example.com/mock-b',
     spendAmount: 5200,
@@ -81,13 +92,13 @@ const realCompanyWeeklyRows: WeeklyDelivery[] = [
   {
     ...auditBase,
     id: 'real-weekly-1',
-    period: '2026-07 第一期',
+    period: '2026-07 P1',
     weekStartDate: '2026-07-06',
-    accountName: '职场增长实验室',
-    paymentChannel: '对公转账',
-    placement: '头条',
+    accountName: 'Growth Lab',
+    paymentChannel: 'Bank',
+    placement: 'Top',
     deliveryTime: '2026-07-06 10:30',
-    articleTitle: '30 天建立高质量学习闭环',
+    articleTitle: 'Build a 30-day learning loop',
     courseCode: 'GROW-30',
     articleUrl: 'https://example.com/real-growth',
     spendAmount: 12800,
@@ -102,13 +113,13 @@ const realCompanyWeeklyRows: WeeklyDelivery[] = [
   {
     ...auditBase,
     id: 'real-weekly-2',
-    period: '2026-07 第一期',
+    period: '2026-07 P1',
     weekStartDate: '2026-07-06',
-    accountName: '认知跃迁笔记',
-    paymentChannel: '微信',
-    placement: '次条',
+    accountName: 'Insight Notes',
+    paymentChannel: 'Wechat',
+    placement: 'Second',
     deliveryTime: '2026-07-07 19:45',
-    articleTitle: '升学规划变化里的信息差',
+    articleTitle: 'Information gap in planning',
     courseCode: 'EDU-INFO',
     articleUrl: 'https://example.com/real-note',
     spendAmount: 9600,
@@ -120,36 +131,15 @@ const realCompanyWeeklyRows: WeeklyDelivery[] = [
     coursePrice: 311,
     dealAmount: 0,
   },
-  {
-    ...auditBase,
-    id: 'real-weekly-3',
-    period: '2026-07 第一期',
-    weekStartDate: '2026-07-06',
-    accountName: '家庭教育每日谈',
-    paymentChannel: '支付宝',
-    placement: '头条',
-    deliveryTime: '2026-07-08 09:15',
-    articleTitle: '孩子拖延背后的真实原因',
-    courseCode: 'FAM-001',
-    articleUrl: 'https://example.com/real-family',
-    spendAmount: 11200,
-    normalReadCount: 62300,
-    readCount: 28500,
-    adReadCount: 28500,
-    wechatAdds: 970,
-    dealCount: 86,
-    coursePrice: 339,
-    dealAmount: 0,
-  },
 ];
 
 const mockGuestPlans: NextWeekPlan[] = [
   {
     ...auditBase,
     id: 'guest-plan-1',
-    accountName: '模拟账号 A',
+    accountName: 'Demo Account A',
     plannedTime: '2026-07-13 10:30',
-    articleTitle: '模拟排期：学习状态重建',
+    articleTitle: 'Demo schedule',
     courseCode: 'MOCK-303',
     articleUrl: 'https://example.com/mock-plan-a',
     plannedAmount: 7000,
@@ -163,28 +153,15 @@ const realCompanyPlans: NextWeekPlan[] = [
   {
     ...auditBase,
     id: 'real-plan-1',
-    accountName: '职场增长实验室',
+    accountName: 'Growth Lab',
     plannedTime: '2026-07-13 10:30',
-    articleTitle: '暑期后半程学习状态重建',
+    articleTitle: 'Summer learning reset',
     courseCode: 'GROW-SUMMER',
     articleUrl: 'https://example.com/plan-growth',
     plannedAmount: 15800,
     layoutStatus: 'done',
     paymentStatus: 'partial',
     sortOrder: 1,
-  },
-  {
-    ...auditBase,
-    id: 'real-plan-2',
-    accountName: '升学情报站',
-    plannedTime: '2026-07-14 08:50',
-    articleTitle: '新初三关键节点',
-    courseCode: 'SCHOOL-9',
-    articleUrl: 'https://example.com/plan-school',
-    plannedAmount: 8600,
-    layoutStatus: 'published',
-    paymentStatus: 'paid',
-    sortOrder: 2,
   },
 ];
 
@@ -201,12 +178,12 @@ let auditLogs: AuditLog[] = [
   {
     id: 'audit-1',
     time: now,
-    operatorName: '系统',
-    actionType: '新增',
-    module: '本期投放',
-    target: '初始化数据',
+    operatorName: 'system',
+    actionType: ACTION_CREATE,
+    module: MODULE_WEEKLY,
+    target: 'initial data',
     before: '-',
-    after: '初始化投放数据',
+    after: 'initialized',
   },
 ];
 
@@ -246,10 +223,15 @@ function setPlanStore(rows: NextWeekPlan[]) {
   else guestPlans = rows;
 }
 
+function stringifyAudit(value: unknown) {
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value);
+}
+
 function writeAudit(
   operatorName: string,
-  actionType: AuditLog['actionType'],
-  module: AuditLog['module'],
+  actionType: string,
+  module: string,
   target: string,
   before: unknown,
   after: unknown,
@@ -269,13 +251,8 @@ function writeAudit(
   ];
 }
 
-function stringifyAudit(value: unknown) {
-  if (typeof value === 'string') return value;
-  return JSON.stringify(value);
-}
-
 function writeVersion(
-  module: VersionRecord['module'],
+  module: string,
   targetId: string,
   targetName: string,
   operatorName: string,
@@ -352,7 +329,7 @@ export async function addTeacher(name: string, operatorName: string) {
   await delay();
   const teacher = { id: `teacher-${Date.now()}`, name };
   teachers = [...teachers, teacher];
-  writeAudit(operatorName, '新增', '老师管理', name, '-', teacher);
+  writeAudit(operatorName, ACTION_CREATE, MODULE_TEACHER, name, '-', teacher);
   return [...teachers];
 }
 
@@ -366,7 +343,7 @@ export async function renameTeacher(
   teachers = teachers.map((teacher) =>
     teacher.id === teacherId ? { ...teacher, name } : teacher,
   );
-  writeAudit(operatorName, '修改', '老师管理', name, before ?? '-', name);
+  writeAudit(operatorName, ACTION_UPDATE, MODULE_TEACHER, name, before ?? '-', name);
   return [...teachers];
 }
 
@@ -389,7 +366,7 @@ export async function createWeeklyData(
     updatedAt: timestamp(),
   });
   setWeeklyStore([row, ...weeklyStore()]);
-  writeAudit(operatorName, '新增', '本期投放', row.accountName, '-', row);
+  writeAudit(operatorName, ACTION_CREATE, MODULE_WEEKLY, row.accountName, '-', row);
   return toWeeklyView(row);
 }
 
@@ -401,11 +378,11 @@ export async function updateWeeklyData(
   await delay();
   const rows = weeklyStore();
   const before = rows.find((row) => row.id === rowId);
-  if (!before) throw new Error('未找到投放记录');
+  if (!before) throw new Error('Record not found');
   const after = recalculateWeeklyRow(withUpdate({ ...before, ...patch }, operatorName));
   setWeeklyStore(rows.map((row) => (row.id === rowId ? after : row)));
-  writeAudit(operatorName, '修改', '本期投放', after.accountName, before, after);
-  writeVersion('本期投放', after.id, after.accountName, operatorName, before, after);
+  writeAudit(operatorName, ACTION_UPDATE, MODULE_WEEKLY, after.accountName, before, after);
+  writeVersion(MODULE_WEEKLY, after.id, after.accountName, operatorName, before, after);
   return toWeeklyView(after);
 }
 
@@ -414,39 +391,11 @@ export async function deleteWeeklyData(rowId: string, operatorName: string) {
   const rows = weeklyStore();
   const before = rows.find((row) => row.id === rowId);
   setWeeklyStore(rows.filter((row) => row.id !== rowId));
-  writeAudit(operatorName, '删除', '本期投放', before?.accountName ?? rowId, before ?? '-', '-');
+  writeAudit(operatorName, ACTION_DELETE, MODULE_WEEKLY, before?.accountName ?? rowId, before ?? '-', '-');
 }
 
 export async function uploadWeeklyCsv(text: string, operatorName: string) {
-  await delay();
-  const rows = parseCsv(text).map((cols, index): WeeklyDelivery =>
-    recalculateWeeklyRow({
-      id: `weekly-upload-${Date.now()}-${index}`,
-      period: cols[0] || 'CSV导入',
-      weekStartDate: cols[0] || dayjs().startOf('week').add(1, 'day').format('YYYY-MM-DD'),
-      accountName: cols[1] || '未命名账号',
-      deliveryTime: cols[2] || timestamp(),
-      articleTitle: cols[3] || '未命名标题',
-      courseCode: cols[4] || undefined,
-      articleUrl: cols[5] || undefined,
-      spendAmount: Number(cols[6]) || 0,
-      readCount: Number(cols[7]) || 0,
-      adReadCount: Number(cols[7]) || 0,
-      wechatAdds: Number(cols[8]) || 0,
-      dealCount: Number(cols[9]) || 0,
-      coursePrice: Number(cols[10]) || 0,
-      dealAmount: Number(cols[11]) || 0,
-      createdBy: operatorName,
-      createdAt: timestamp(),
-      updatedBy: operatorName,
-      updatedAt: timestamp(),
-      uploadedBy: operatorName,
-      uploadedAt: timestamp(),
-    }),
-  );
-  setWeeklyStore([...rows, ...weeklyStore()]);
-  writeAudit(operatorName, '上传', '本期投放', 'CSV', '-', `导入 ${rows.length} 条`);
-  writeAudit(operatorName, '重算公式', '本期投放', 'CSV公式字段', '-', '已自动重算');
+  return uploadDataFile('csv', 'weekly.csv', text, operatorName);
 }
 
 export async function uploadExcelDataSource(
@@ -458,10 +407,10 @@ export async function uploadExcelDataSource(
   await delay();
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   uploadVersionNo += 1;
-  let importedRows = 0;
-  const importedWeeklyRows: WeeklyDelivery[] = [];
   const versionNo = uploadVersionNo;
   const uploadedAt = timestamp();
+  let importedRows = 0;
+  const importedWeeklyRows: WeeklyDelivery[] = [];
 
   workbook.SheetNames.forEach((sheetName) => {
     const sheet = workbook.Sheets[sheetName];
@@ -471,69 +420,39 @@ export async function uploadExcelDataSource(
       raw: false,
     });
     const rows = rowsFromSheet(matrix, sheetName);
-    if (sourceType === 'trainingCamp') {
+    if (sourceType === 'officialAccount' && sheetName.includes('账号评估模型')) {
+      rows.forEach((row) => {
+        const accountName = stringValue(row, ['账号', '账号名称', '公众号', '公众号名称', 'account']);
+        const accountLevel = stringValue(row, ['账号等级', '等级', '评估等级', 'level']);
+        if (accountName && accountLevel) accountLevelRules.set(accountName, accountLevel);
+      });
+    } else if (sourceType === 'officialAccount' && sheetName.includes('标题ROI波动')) {
+      titleRoiTrend = rows.map((row) => ({
+        title: stringValue(row, ['标题', '文章标题', '投放标题', 'title']) ?? 'Untitled',
+        date: stringValue(row, ['日期', '时间', '发文时间', 'date']) || sheetName,
+        roi: numberValue(row, ['ROI', 'roi']),
+      }));
+    } else {
       const weeklyRows = rows.map((row, index) =>
         excelRowToWeekly(row, sheetName, index, operatorName, uploadedAt),
       );
       importedWeeklyRows.push(...weeklyRows);
       importedRows += weeklyRows.length;
-    } else {
-      if (sheetName.includes('账号评估模型')) {
-        rows.forEach((row) => {
-          const accountName = stringValue(row, ['账号', '账号名称', '公众号', '公众号名称']);
-          const accountLevel = stringValue(row, ['账号等级', '等级', '评估等级']);
-          if (accountName && accountLevel) accountLevelRules.set(accountName, accountLevel);
-        });
-      } else if (sheetName.includes('标题ROI波动')) {
-        titleRoiTrend = rows.map((row) => ({
-          title: stringValue(row, ['标题', '文章标题', '投放标题']) ?? '未命名标题',
-          date: stringValue(row, ['日期', '时间', '发文时间']) || sheetName,
-          roi: numberValue(row, ['ROI', 'roi']),
-        }));
-      } else {
-        const weeklyRows = rows.map((row, index) =>
-          excelRowToWeekly(row, sheetName, index, operatorName, uploadedAt),
-        );
-        importedWeeklyRows.push(...weeklyRows);
-        importedRows += weeklyRows.length;
-      }
     }
 
-    writeVersion(
-      sourceType === 'trainingCamp' ? '本期投放' : '历史汇总',
-      `upload-${versionNo}-${sheetName}`,
-      `${fileName}/${sheetName}`,
-      operatorName,
-      '-',
-      `导入 ${rows.length} 条`,
-      {
-        uploadedBy: operatorName,
-        uploadedAt,
-        sheetName,
-        versionNo,
-      },
-    );
+    writeVersion(MODULE_WEEKLY, `upload-${versionNo}-${sheetName}`, `${fileName}/${sheetName}`, operatorName, '-', `Imported ${rows.length} rows`, {
+      uploadedBy: operatorName,
+      uploadedAt,
+      sheetName,
+      versionNo,
+    });
   });
 
   if (importedWeeklyRows.length > 0) {
     setWeeklyStore([...importedWeeklyRows, ...weeklyStore()]);
   }
-  writeAudit(
-    operatorName,
-    '上传',
-    sourceType === 'trainingCamp' ? '本期投放' : '历史汇总',
-    fileName,
-    '-',
-    `解析 ${workbook.SheetNames.length} 个 sheet，导入 ${importedRows} 条`,
-  );
-  writeAudit(
-    operatorName,
-    '重算公式',
-    sourceType === 'trainingCamp' ? '本期投放' : '历史汇总',
-    fileName,
-    '-',
-    '加微成本、加微率、阅读成本、成交金额、转化率、ROI 已重算',
-  );
+  writeAudit(operatorName, ACTION_UPLOAD, sourceType === 'officialAccount' ? MODULE_HISTORY : MODULE_WEEKLY, fileName, '-', `Parsed ${workbook.SheetNames.length} sheets, imported ${importedRows} rows`);
+  writeAudit(operatorName, ACTION_RECALC, MODULE_WEEKLY, fileName, '-', 'Formula fields recalculated');
 
   return {
     sourceType,
@@ -541,6 +460,66 @@ export async function uploadExcelDataSource(
     sheetCount: workbook.SheetNames.length,
     rowCount: importedRows,
     versionNo,
+    structured: true,
+  };
+}
+
+export async function uploadDataFile(
+  sourceType: UploadSourceType,
+  fileName: string,
+  file: ArrayBuffer | string,
+  operatorName: string,
+): Promise<ExcelUploadResult> {
+  if (sourceType === 'trainingCamp' || sourceType === 'officialAccount') {
+    if (typeof file === 'string') throw new Error('Excel file content is invalid');
+    return uploadExcelDataSource(sourceType, fileName, file, operatorName);
+  }
+
+  await delay();
+  uploadVersionNo += 1;
+  const versionNo = uploadVersionNo;
+  const uploadedAt = timestamp();
+
+  if (sourceType === 'csv') {
+    const text = typeof file === 'string' ? file : new TextDecoder('utf-8').decode(file);
+    const rows = rowsFromSheet(csvToMatrix(text), fileName);
+    const weeklyRows = rows.map((row, index) =>
+      excelRowToWeekly(row, fileName, index, operatorName, uploadedAt),
+    );
+    if (weeklyRows.length > 0) setWeeklyStore([...weeklyRows, ...weeklyStore()]);
+    writeVersion(MODULE_WEEKLY, `upload-${versionNo}-${fileName}`, fileName, operatorName, '-', `Imported ${weeklyRows.length} rows`, {
+      uploadedBy: operatorName,
+      uploadedAt,
+      sheetName: fileName,
+      versionNo,
+    });
+    writeAudit(operatorName, ACTION_UPLOAD, MODULE_WEEKLY, fileName, '-', `CSV imported ${weeklyRows.length} rows`);
+    writeAudit(operatorName, ACTION_RECALC, MODULE_WEEKLY, fileName, '-', 'Formula fields recalculated');
+    return {
+      sourceType,
+      fileName,
+      sheetCount: 1,
+      rowCount: weeklyRows.length,
+      versionNo,
+      structured: true,
+    };
+  }
+
+  const fileSize = typeof file === 'string' ? new Blob([file]).size : file.byteLength;
+  writeVersion(MODULE_WEEKLY, `attachment-${versionNo}-${fileName}`, fileName, operatorName, '-', `${sourceType} attachment, ${fileSize} bytes`, {
+    uploadedBy: operatorName,
+    uploadedAt,
+    sheetName: 'attachment',
+    versionNo,
+  });
+  writeAudit(operatorName, ACTION_UPLOAD, MODULE_WEEKLY, fileName, '-', `${sourceType} attachment recorded`);
+  return {
+    sourceType,
+    fileName,
+    sheetCount: 0,
+    rowCount: 0,
+    versionNo,
+    structured: false,
   };
 }
 
@@ -565,7 +544,7 @@ export async function createPlan(
     updatedAt: timestamp(),
   };
   setPlanStore([...planStore(), row]);
-  writeAudit(operatorName, '新增', '下期投放', row.accountName, '-', row);
+  writeAudit(operatorName, ACTION_CREATE, MODULE_NEXT, row.accountName, '-', row);
   return row;
 }
 
@@ -577,11 +556,11 @@ export async function updatePlan(
   await delay();
   const rows = planStore();
   const before = rows.find((row) => row.id === planId);
-  if (!before) throw new Error('未找到排期');
+  if (!before) throw new Error('Plan not found');
   const after = withUpdate({ ...before, ...patch }, operatorName);
   setPlanStore(rows.map((row) => (row.id === planId ? after : row)));
-  writeAudit(operatorName, '修改', '下期投放', after.accountName, before, after);
-  writeVersion('下期投放', after.id, after.accountName, operatorName, before, after);
+  writeAudit(operatorName, ACTION_UPDATE, MODULE_NEXT, after.accountName, before, after);
+  writeVersion(MODULE_NEXT, after.id, after.accountName, operatorName, before, after);
   return after;
 }
 
@@ -590,16 +569,16 @@ export async function deletePlan(planId: string, operatorName: string) {
   const rows = planStore();
   const before = rows.find((row) => row.id === planId);
   setPlanStore(rows.filter((row) => row.id !== planId));
-  writeAudit(operatorName, '删除', '下期投放', before?.accountName ?? planId, before ?? '-', '-');
+  writeAudit(operatorName, ACTION_DELETE, MODULE_NEXT, before?.accountName ?? planId, before ?? '-', '-');
 }
 
 export async function uploadPlanCsv(text: string, operatorName: string) {
   await delay();
   const rows = parseCsv(text).map((cols, index): NextWeekPlan => ({
     id: `plan-upload-${Date.now()}-${index}`,
-    accountName: cols[0] || '未命名账号',
+    accountName: cols[0] || 'Unnamed account',
     plannedTime: cols[1] || timestamp(),
-    articleTitle: cols[2] || '未命名标题',
+    articleTitle: cols[2] || 'Untitled',
     courseCode: cols[3] || undefined,
     articleUrl: cols[4] || undefined,
     plannedAmount: Number(cols[5]) || 0,
@@ -614,7 +593,7 @@ export async function uploadPlanCsv(text: string, operatorName: string) {
     uploadedAt: timestamp(),
   }));
   setPlanStore([...planStore(), ...rows]);
-  writeAudit(operatorName, '上传', '下期投放', 'CSV', '-', `导入 ${rows.length} 条`);
+  writeAudit(operatorName, ACTION_UPLOAD, MODULE_NEXT, 'CSV', '-', `Imported ${rows.length} rows`);
 }
 
 export async function getAccountHistory(accountName: string) {
@@ -639,7 +618,9 @@ export async function getHistorySummary(): Promise<HistorySummary> {
       return {
         id: `perf-${index}`,
         accountName,
-        accountLevel: accountLevelRules.get(accountName) ?? inferAccountLevel(dealAmount / Math.max(totalSpendAmount, 1)),
+        accountLevel:
+          accountLevelRules.get(accountName) ??
+          inferAccountLevel(dealAmount / Math.max(totalSpendAmount, 1)),
         cooperationCount: list.length,
         totalReadCount,
         averageReadCount: totalReadCount / Math.max(list.length, 1),
@@ -666,7 +647,10 @@ export async function getHistorySummary(): Promise<HistorySummary> {
       averageLeadCost: totalSpendAmount / Math.max(totalLeads, 1),
     },
     accountPerformance,
-    roiTrend: titleRoiTrend.length > 0 ? titleRoiTrend.map((item) => ({ date: item.date, value: item.roi })) : buildTrend(rows, 'roi'),
+    roiTrend:
+      titleRoiTrend.length > 0
+        ? titleRoiTrend.map((item) => ({ date: item.date, value: item.roi }))
+        : buildTrend(rows, 'roi'),
     leadCostTrend: buildLeadCostTrend(rows),
   };
 }
@@ -713,7 +697,7 @@ export async function getDashboardScreenData(): Promise<DashboardScreenData> {
 }
 
 export function exportVersionRecordsCsv(rows: VersionRecord[]) {
-  const header = ['版本号', '上传人', '上传时间', '模块', 'Sheet', '对象', '版本时间', '修改前', '修改后'];
+  const header = ['versionNo', 'uploadedBy', 'uploadedAt', 'module', 'sheet', 'target', 'versionTime', 'before', 'after'];
   const body = rows.map((row) => [
     row.versionNo ?? '',
     row.uploadedBy ?? row.operatorName,
@@ -752,7 +736,7 @@ function shouldSkipRow(row: Record<string, string | number>, sheetName: string) 
   const values = Object.values(row).map((value) => String(value).trim()).filter(Boolean);
   if (values.length === 0) return true;
   const text = values.join('');
-  return /合计|总计|说明|备注|填表|示例|小计/.test(text) || /^Sheet\d+$/i.test(sheetName);
+  return /合计|总计|说明|备注|填表|示例|小计/i.test(text) || /^Sheet\d+$/i.test(sheetName);
 }
 
 function excelRowToWeekly(
@@ -763,34 +747,34 @@ function excelRowToWeekly(
   uploadedAt: string,
 ): WeeklyDelivery {
   const deliveryTime =
-    stringValue(row, ['发文时间', '投放时间', '时间', '日期']) || uploadedAt;
+    stringValue(row, ['发文时间', '投放时间', '时间', '日期', 'deliveryTime']) || uploadedAt;
   const weekStartDate = dayjs(deliveryTime).isValid()
     ? dayjs(deliveryTime).startOf('week').add(1, 'day').format('YYYY-MM-DD')
     : dayjs().startOf('week').add(1, 'day').format('YYYY-MM-DD');
   return recalculateWeeklyRow({
-    id: `excel-${Date.now()}-${sheetName}-${index}`,
+    id: `upload-row-${Date.now()}-${index}`,
     period: sheetName,
     weekStartDate,
     accountName:
-      stringValue(row, ['账号', '账号名称', '公众号', '公众号名称']) || '未命名账号',
-    paymentChannel: stringValue(row, ['付款渠道', '支付渠道']),
-    placement: stringValue(row, ['投放位置', '位置']),
+      stringValue(row, ['账号', '账号名称', '公众号', '公众号名称', 'accountName']) || 'Unnamed account',
+    paymentChannel: stringValue(row, ['付款渠道', '支付渠道', 'paymentChannel']),
+    placement: stringValue(row, ['投放位置', '位置', 'placement']),
     deliveryTime,
     articleTitle:
-      stringValue(row, ['文章标题', '标题', '投放标题']) || '未命名标题',
+      stringValue(row, ['文章标题', '标题', '投放标题', 'articleTitle']) || 'Untitled',
     courseCode: stringValue(row, ['投放课程', '课程', 'courseCode', '课程编码']),
-    articleUrl: stringValue(row, ['链接', '文章链接', '预览链接']),
-    previewUrl: stringValue(row, ['预览链接']),
-    qrCode: stringValue(row, ['二维码', '二维码链接']),
-    screenshot: stringValue(row, ['截图', '截图链接']),
-    spendAmount: numberValue(row, ['投放金额', '金额', '计划金额']),
-    normalReadCount: numberValue(row, ['常文阅读量', '自然阅读量']),
-    readCount: numberValue(row, ['广告阅读量', '阅读量']),
-    adReadCount: numberValue(row, ['广告阅读量', '阅读量']),
-    wechatAdds: numberValue(row, ['加微量', '加粉量', '获客数']),
-    dealCount: numberValue(row, ['成交量', '成交数']),
-    coursePrice: numberValue(row, ['课程单价', '单价', '客单价']),
-    dealAmount: numberValue(row, ['成交金额']),
+    articleUrl: stringValue(row, ['链接', '文章链接', '预览链接', 'articleUrl']),
+    previewUrl: stringValue(row, ['预览链接', 'previewUrl']),
+    qrCode: stringValue(row, ['二维码', '二维码链接', 'qrCode']),
+    screenshot: stringValue(row, ['截图', '截图链接', 'screenshot']),
+    spendAmount: numberValue(row, ['投放金额', '金额', '计划金额', 'spendAmount']),
+    normalReadCount: numberValue(row, ['常文阅读量', '自然阅读量', 'normalReadCount']),
+    readCount: numberValue(row, ['广告阅读量', '阅读量', 'readCount']),
+    adReadCount: numberValue(row, ['广告阅读量', '阅读量', 'adReadCount']),
+    wechatAdds: numberValue(row, ['加微量', '加粉量', '获客数', 'wechatAdds']),
+    dealCount: numberValue(row, ['成交量', '成交数', 'dealCount']),
+    coursePrice: numberValue(row, ['课程单价', '单价', '客单价', 'coursePrice']),
+    dealAmount: numberValue(row, ['成交金额', 'dealAmount']),
     raw: row,
     createdBy: operatorName,
     createdAt: uploadedAt,
@@ -825,13 +809,16 @@ function findValue(row: Record<string, string | number>, aliases: string[]) {
   return key ? row[key] : undefined;
 }
 
-function parseCsv(text: string) {
+function csvToMatrix(text: string) {
   return text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .slice(1)
     .map((line) => line.split(',').map((cell) => cell.replace(/^"|"$/g, '').trim()));
+}
+
+function parseCsv(text: string) {
+  return csvToMatrix(text).slice(1);
 }
 
 function sum<T>(rows: T[], key: keyof T) {

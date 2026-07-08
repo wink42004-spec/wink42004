@@ -1,15 +1,15 @@
 import { Button, Layout, Modal, Space, Tabs, Tag, Typography, Upload, message } from 'antd';
-import type { UploadProps } from 'antd';
+import type { UploadFile, UploadProps } from 'antd';
 import { useState } from 'react';
 import { PermissionNotice } from '../components/PermissionNotice';
 import { UserStatusBadge } from '../components/UserStatusBadge';
 import { useAuthContext } from '../context/AuthContext';
-import { uploadExcelDataSource } from '../services/mockApi';
+import { uploadDataFile } from '../services/mockApi';
 import { AuditLogTab } from '../tabs/AuditLogTab';
 import { HistoryTab } from '../tabs/HistoryTab';
 import { NextWeekTab } from '../tabs/NextWeekTab';
 import { WeeklyTab } from '../tabs/WeeklyTab';
-import type { ExcelSourceType } from '../types/shared';
+import type { UploadSourceType } from '../types/shared';
 
 const { Header, Content } = Layout;
 
@@ -18,6 +18,18 @@ interface DashboardProps {
   onLogin: () => void;
   onRegister: () => void;
   onReview: () => void;
+}
+
+const uploadAccept = '.xlsx,.xls,.csv,.docx,.pdf,.png,.jpg,.jpeg,.webp';
+
+function getUploadSourceType(fileName: string): UploadSourceType | null {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  if (ext === 'xlsx' || ext === 'xls') return 'trainingCamp';
+  if (ext === 'csv') return 'csv';
+  if (ext === 'docx') return 'document';
+  if (ext === 'pdf') return 'pdf';
+  if (ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'webp') return 'image';
+  return null;
 }
 
 export function Dashboard({
@@ -34,24 +46,35 @@ export function Dashboard({
     currentUser.status === 'approved' ||
     currentUser.isAdmin;
 
-  const uploadProps = (sourceType: ExcelSourceType): UploadProps => ({
-    accept: '.xlsx,.xls',
+  const uploadProps: UploadProps = {
+    accept: uploadAccept,
+    multiple: true,
     showUploadList: false,
-    beforeUpload: (file) => {
-      void file
-        .arrayBuffer()
-        .then((buffer) =>
-          uploadExcelDataSource(sourceType, file.name, buffer, currentUser.username),
+    beforeUpload: (file: UploadFile) => {
+      const realFile = file as unknown as File;
+      const sourceType = getUploadSourceType(realFile.name);
+      if (!sourceType) {
+        message.error('暂不支持该文件格式');
+        return false;
+      }
+      const readFile =
+        sourceType === 'csv' ? realFile.text() : realFile.arrayBuffer();
+      void readFile
+        .then((content) =>
+          uploadDataFile(sourceType, realFile.name, content, currentUser.username),
         )
         .then((result) => {
-          message.success(
-            `已导入 ${result.sheetCount} 个 sheet，${result.rowCount} 条记录，版本号 V${result.versionNo}`,
-          );
-          setUploadOpen(false);
+          if (result.structured) {
+            message.success(
+              `已结构化导入 ${result.rowCount} 条记录，版本号 V${result.versionNo}`,
+            );
+          } else {
+            message.success(`已上传附件并记录版本 V${result.versionNo}`);
+          }
         });
       return false;
     },
-  });
+  };
 
   return (
     <Layout className="app-shell">
@@ -88,7 +111,7 @@ export function Dashboard({
             <p className="overview-copy">
               {currentUser.status === 'guest'
                 ? '当前为访客模式，展示模拟数据。'
-                : `当前账号：${currentUser.username}。所有人查看同一套共享数据，上传 Excel 后会自动重算公式字段并写入修改记录。`}
+                : `当前账号：${currentUser.username}。Excel / CSV 会结构化导入本期投放，Word / PDF / 图片会作为附件记录。`}
             </p>
           </div>
           <div className="overview-signal" aria-hidden="true">
@@ -116,26 +139,21 @@ export function Dashboard({
         )}
       </Content>
       <Modal
-        title="上传 Excel 数据源"
+        title="上传数据文件"
         open={uploadOpen}
         onCancel={() => setUploadOpen(false)}
         footer={null}
         width={760}
       >
-        <div className="upload-source-grid">
-          <Upload.Dragger {...uploadProps('trainingCamp')}>
-            <p className="upload-source-title">训练营投放数据监测表</p>
-            <p className="upload-hint">
-              解析所有 sheet，sheet 名作为期次，表头作为本期投放字段。
-            </p>
-          </Upload.Dragger>
-          <Upload.Dragger {...uploadProps('officialAccount')}>
-            <p className="upload-source-title">公众号投放数据</p>
-            <p className="upload-hint">
-              读取投放数据明细、账号数据汇总、账号评估模型、标题 ROI 波动。
-            </p>
-          </Upload.Dragger>
-        </div>
+        <Upload.Dragger {...uploadProps}>
+          <p className="upload-source-title">拖拽或点击上传文件</p>
+          <p className="upload-hint">
+            Excel（.xlsx/.xls）和 CSV（.csv）会解析 sheet、表头、数据行与公式字段，并写入本期投放数据。
+          </p>
+          <p className="upload-hint">
+            Word（.docx）、PDF（.pdf）和图片（.png/.jpg/.jpeg/.webp）会作为附件记录上传历史。
+          </p>
+        </Upload.Dragger>
       </Modal>
     </Layout>
   );

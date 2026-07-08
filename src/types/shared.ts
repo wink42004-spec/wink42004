@@ -122,8 +122,8 @@ export interface AuditLog {
   id: string;
   time: string;
   operatorName: string;
-  actionType: '新增' | '修改' | '上传' | '删除' | '自动更新阅读量' | '重算公式';
-  module: '本期投放' | '下期投放' | '老师管理' | '历史汇总';
+  actionType: string;
+  module: string;
   target: string;
   before: string;
   after: string;
@@ -131,7 +131,7 @@ export interface AuditLog {
 
 export interface VersionRecord {
   id: string;
-  module: '本期投放' | '下期投放' | '历史汇总';
+  module: string;
   targetId: string;
   targetName: string;
   versionTime: string;
@@ -160,11 +160,13 @@ export interface DashboardScreenData {
 }
 
 export type ExcelSourceType = 'trainingCamp' | 'officialAccount';
+export type UploadSourceType = ExcelSourceType | 'csv' | 'document' | 'pdf' | 'image';
 
 export interface ExcelUploadResult {
-  sourceType: ExcelSourceType;
+  sourceType: UploadSourceType;
   fileName: string;
   sheetCount: number;
   rowCount: number;
   versionNo: number;
+  structured: boolean;
 }
