@@ -1,4 +1,1 @@
-export interface Teacher {
-  id: string;
-  name: string;
-}
+export type { Teacher } from './shared';

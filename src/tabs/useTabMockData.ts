@@ -4,7 +4,7 @@ import { getDashboardTabData } from '../services/dashboardDataService';
 import type { DashboardTabKey, DeliveryMetric } from '../types/dashboard';
 
 export function useTabMockData(tabKey: DashboardTabKey) {
-  const { currentTeacher } = useDashboardContext();
+  const { currentOperator } = useDashboardContext();
   const [data, setData] = useState<DeliveryMetric[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +12,7 @@ export function useTabMockData(tabKey: DashboardTabKey) {
   useEffect(() => {
     let ignore = false;
 
-    if (!currentTeacher) {
+    if (!currentOperator) {
       setData([]);
       setLoading(false);
       setError(null);
@@ -22,7 +22,7 @@ export function useTabMockData(tabKey: DashboardTabKey) {
     setLoading(true);
     setError(null);
 
-    getDashboardTabData(currentTeacher.id, tabKey)
+    getDashboardTabData(currentOperator.id, tabKey)
       .then((nextData) => {
         if (!ignore) {
           setData(nextData);
@@ -43,7 +43,7 @@ export function useTabMockData(tabKey: DashboardTabKey) {
     return () => {
       ignore = true;
     };
-  }, [currentTeacher, tabKey]);
+  }, [currentOperator, tabKey]);
 
   return {
     data,

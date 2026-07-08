@@ -1,4 +1,8 @@
-import { mockGetWeeklyData, mockRefreshReadCount } from './mockApi';
-
-export const getWeeklyData = mockGetWeeklyData;
-export const refreshReadCount = mockRefreshReadCount;
+export {
+  createWeeklyData,
+  deleteWeeklyData,
+  getWeeklyData,
+  refreshReadCount,
+  updateWeeklyData,
+  uploadWeeklyCsv,
+} from './mockApi';

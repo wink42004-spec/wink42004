@@ -1,29 +1,12 @@
-export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
+export type {
+  NextWeekPlan,
+  PaymentStatus,
+  WeeklyDeliveryView as AccountHistoryRecord,
+} from './shared';
 
-export interface NextWeekPlan {
-  id: string;
-  teacherId: string;
-  accountName: string;
-  plannedTime: string;
-  articleTitle: string;
-  plannedAmount: number;
-  paymentStatus: PaymentStatus;
-  sortOrder: number;
-}
-
-export interface AccountHistoryRecord {
-  id: string;
-  teacherId: string;
-  accountName: string;
-  deliveryTime: string;
-  articleTitle: string;
-  spendAmount: number;
-  adReadCount: number;
-  roi: number;
-}
+import type { PaymentStatus } from './shared';
 
 export interface PlanPayload {
-  teacherId: string;
   accountName: string;
   plannedTime: string;
   articleTitle: string;

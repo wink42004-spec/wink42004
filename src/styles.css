@@ -224,6 +224,54 @@ body {
   height: 320px;
 }
 
+.upload-hint {
+  color: #64748b;
+}
+
+.screen-shell {
+  min-height: 100vh;
+  background: #08111f;
+}
+
+.screen-content {
+  padding: 28px;
+  color: #e5eefb;
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.screen-header h2 {
+  margin: 0;
+  color: #f8fafc;
+}
+
+.screen-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.screen-kpi-grid article {
+  min-height: 128px;
+  padding: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.86);
+  cursor: pointer;
+}
+
+.screen-kpi-grid .ant-statistic-title,
+.screen-kpi-grid .ant-statistic-content {
+  color: #e5eefb;
+}
+
 @media (max-width: 720px) {
   .dashboard-header {
     align-items: flex-start;
@@ -261,7 +309,8 @@ body {
   }
 
   .history-kpi-grid,
-  .history-chart-grid {
+  .history-chart-grid,
+  .screen-kpi-grid {
     grid-template-columns: 1fr;
   }
 }

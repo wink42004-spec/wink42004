@@ -2,17 +2,24 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
-import { mockTeachers } from '../mock/teachers';
-import type { Teacher } from '../types/teacher';
+import {
+  addTeacher,
+  getTeachers,
+  renameTeacher,
+} from '../services/mockApi';
+import type { Teacher } from '../types/shared';
 
 interface DashboardContextValue {
-  currentTeacher: Teacher | null;
+  currentOperator: Teacher;
   teacherList: Teacher[];
-  setCurrentTeacher: (teacher: Teacher) => void;
+  setCurrentOperator: (teacherId: string) => void;
+  addTeacher: (name: string) => Promise<void>;
+  renameTeacher: (teacherId: string, name: string) => Promise<void>;
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -21,22 +28,53 @@ interface DashboardProviderProps {
   children: ReactNode;
 }
 
-export function DashboardProvider({ children }: DashboardProviderProps) {
-  const [currentTeacher, updateCurrentTeacher] = useState<Teacher | null>(
-    mockTeachers[0] ?? null,
-  );
+const fallbackTeacher: Teacher = {
+  id: 'teacher-zhang',
+  name: '张老师',
+};
 
-  const setCurrentTeacher = useCallback((teacher: Teacher) => {
-    updateCurrentTeacher(teacher);
+export function DashboardProvider({ children }: DashboardProviderProps) {
+  const [teacherList, setTeacherList] = useState<Teacher[]>([fallbackTeacher]);
+  const [currentOperatorId, setCurrentOperatorId] = useState(fallbackTeacher.id);
+
+  useEffect(() => {
+    void getTeachers().then((teachers) => {
+      setTeacherList(teachers);
+      setCurrentOperatorId((currentId) => currentId || teachers[0]?.id || '');
+    });
   }, []);
+
+  const currentOperator =
+    teacherList.find((teacher) => teacher.id === currentOperatorId) ||
+    teacherList[0] ||
+    fallbackTeacher;
+
+  const handleAddTeacher = useCallback(async (name: string) => {
+    const nextTeachers = await addTeacher(name, currentOperator.name);
+    setTeacherList(nextTeachers);
+  }, [currentOperator.name]);
+
+  const handleRenameTeacher = useCallback(
+    async (teacherId: string, name: string) => {
+      const nextTeachers = await renameTeacher(
+        teacherId,
+        name,
+        currentOperator.name,
+      );
+      setTeacherList(nextTeachers);
+    },
+    [currentOperator.name],
+  );
 
   const value = useMemo(
     () => ({
-      currentTeacher,
-      teacherList: mockTeachers,
-      setCurrentTeacher,
+      currentOperator,
+      teacherList,
+      setCurrentOperator: setCurrentOperatorId,
+      addTeacher: handleAddTeacher,
+      renameTeacher: handleRenameTeacher,
     }),
-    [currentTeacher, setCurrentTeacher],
+    [currentOperator, handleAddTeacher, handleRenameTeacher, teacherList],
   );
 
   return (
