@@ -17,6 +17,7 @@ export function DashboardScreen({ onBack }: { onBack: () => void }) {
   const [data, setData] = useState<DashboardScreenData | null>(null);
   const [modalTitle, setModalTitle] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     void getDashboardScreenData().then(setData);
@@ -76,7 +77,17 @@ export function DashboardScreen({ onBack }: { onBack: () => void }) {
             dataSource={data.accountRanking}
             rowKey="id"
             pagination={false}
-            onRow={() => ({ onClick: () => openDetail('账号排行明细') })}
+            rowClassName={(record) =>
+              record.id === selectedAccountId
+                ? 'screen-ranking-row screen-ranking-row-selected'
+                : 'screen-ranking-row'
+            }
+            onRow={(record) => ({
+              onClick: () => {
+                setSelectedAccountId(record.id);
+                openDetail('账号排行明细');
+              },
+            })}
             columns={[
               { title: '账号', dataIndex: 'accountName' },
               { title: 'ROI', dataIndex: 'roi', render: (value: number) => value.toFixed(2) },

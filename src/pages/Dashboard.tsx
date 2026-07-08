@@ -1,7 +1,10 @@
 import { Button, Layout, Modal, Space, Tabs, Tag, Typography, Upload, message } from 'antd';
 import { useState } from 'react';
+import { PermissionNotice } from '../components/PermissionNotice';
 import { TeacherManager } from '../components/TeacherManager';
 import { TeacherSelect } from '../components/TeacherSelect';
+import { UserStatusBadge } from '../components/UserStatusBadge';
+import { useAuthContext } from '../context/AuthContext';
 import { useDashboardContext } from '../context/DashboardContext';
 import { uploadWeeklyCsv } from '../services/mockApi';
 import { AuditLogTab } from '../tabs/AuditLogTab';
@@ -13,10 +16,21 @@ const { Header, Content } = Layout;
 
 interface DashboardProps {
   onEnterScreen: () => void;
+  onLogin: () => void;
+  onRegister: () => void;
+  onReview: () => void;
 }
 
-export function Dashboard({ onEnterScreen }: DashboardProps) {
+export function Dashboard({
+  onEnterScreen,
+  onLogin,
+  onRegister,
+  onReview,
+}: DashboardProps) {
+  const { currentUser } = useAuthContext();
   const { currentOperator } = useDashboardContext();
+  const canViewData =
+    currentUser.status === 'guest' || currentUser.status === 'approved' || currentUser.isAdmin;
   const [teacherManagerOpen, setTeacherManagerOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
 
@@ -32,10 +46,15 @@ export function Dashboard({ onEnterScreen }: DashboardProps) {
           </span>
         </div>
         <Space className="dashboard-actions" wrap>
+          <UserStatusBadge
+            onLogin={onLogin}
+            onRegister={onRegister}
+            onReview={onReview}
+          />
           <TeacherSelect />
           <Button onClick={() => setTeacherManagerOpen(true)}>老师管理</Button>
-          <Button onClick={() => setUploadOpen(true)}>上传数据</Button>
-          <Button onClick={onEnterScreen} type="primary">
+          <Button disabled={!canViewData} onClick={() => setUploadOpen(true)}>上传数据</Button>
+          <Button disabled={!canViewData} onClick={onEnterScreen} type="primary">
             进入大屏
           </Button>
         </Space>
@@ -43,10 +62,14 @@ export function Dashboard({ onEnterScreen }: DashboardProps) {
       <Content className="dashboard-content">
         <section className="overview-panel">
           <div>
-            <Tag className="overview-tag">LIVE OPERATIONS</Tag>
+            <Tag className="overview-tag">
+              {currentUser.status === 'guest' ? 'MOCK DATA' : 'LIVE OPERATIONS'}
+            </Tag>
             <h2 className="overview-title">共享投放数据中枢</h2>
             <p className="overview-copy">
-              当前操作人：{currentOperator.name}。所有人查看同一套共享数据，新增、修改、上传、删除都会写入审计记录。
+              {currentUser.status === 'guest'
+                ? '当前为访客模式，展示模拟数据。'
+                : `当前操作人：${currentOperator.name}。所有人查看同一套共享数据，新增、修改、上传、删除都会写入审计记录。`}
             </p>
           </div>
           <div className="overview-signal" aria-hidden="true">
@@ -55,17 +78,23 @@ export function Dashboard({ onEnterScreen }: DashboardProps) {
             <span />
           </div>
         </section>
-        <section className="tabs-panel">
-          <Tabs
-            defaultActiveKey="weekly"
-            items={[
-              { key: 'weekly', label: '本周投放', children: <WeeklyTab /> },
-              { key: 'nextWeek', label: '下周排期', children: <NextWeekTab /> },
-              { key: 'history', label: '历史汇总', children: <HistoryTab /> },
-              { key: 'audit', label: '修改记录', children: <AuditLogTab /> },
-            ]}
-          />
-        </section>
+        {!canViewData ? (
+          <section className="tabs-panel">
+            <PermissionNotice />
+          </section>
+        ) : (
+          <section className="tabs-panel">
+            <Tabs
+              defaultActiveKey="weekly"
+              items={[
+                { key: 'weekly', label: '本周投放', children: <WeeklyTab /> },
+                { key: 'nextWeek', label: '下周排期', children: <NextWeekTab /> },
+                { key: 'history', label: '历史汇总', children: <HistoryTab /> },
+                { key: 'audit', label: '修改记录', children: <AuditLogTab /> },
+              ]}
+            />
+          </section>
+        )}
       </Content>
       <TeacherManager
         open={teacherManagerOpen}

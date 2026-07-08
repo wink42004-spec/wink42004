@@ -3,6 +3,17 @@ export interface Teacher {
   name: string;
 }
 
+export type UserStatus = 'guest' | 'pending' | 'approved' | 'rejected';
+
+export interface AppUser {
+  id: string;
+  username: string;
+  companyNote: string;
+  status: UserStatus;
+  registeredAt: string;
+  isAdmin?: boolean;
+}
+
 export interface DeliveryMetric {
   id: string;
   title: string;
@@ -28,6 +39,7 @@ export interface WeeklyDelivery extends AuditFields {
   accountName: string;
   deliveryTime: string;
   articleTitle: string;
+  articleUrl?: string;
   spendAmount: number;
   readCount: number;
   adReadCount?: number;
@@ -44,6 +56,7 @@ export interface WeeklyDeliveryView extends WeeklyDelivery {
 }
 
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
+export type LayoutStatus = 'pending' | 'processing' | 'done' | 'published';
 
 export interface NextWeekPlan extends AuditFields {
   id: string;
@@ -51,7 +64,9 @@ export interface NextWeekPlan extends AuditFields {
   accountName: string;
   plannedTime: string;
   articleTitle: string;
+  articleUrl?: string;
   plannedAmount: number;
+  layoutStatus: LayoutStatus;
   paymentStatus: PaymentStatus;
   sortOrder: number;
 }

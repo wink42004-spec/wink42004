@@ -30,6 +30,7 @@ interface WeeklyFormValues {
   accountName: string;
   deliveryTime: Dayjs;
   articleTitle: string;
+  articleUrl?: string;
   spendAmount: number;
   readCount: number;
   wechatAdds: number;
@@ -58,20 +59,21 @@ function roiClass(roi: number) {
 }
 
 function exportCsv(rows: WeeklyDeliveryView[]) {
-  const header = ['账号', '投放时间', '标题', '金额', '阅读量', '加微量', '加微成本', '加微率', '阅读成本', '成交量', '成交金额', 'ROI'];
+  const header = ['账号', '标题', '文章链接', '金额', '阅读量', '加微量', 'ROI', '投放时间', '加微成本', '加微率', '阅读成本', '成交量', '成交金额'];
   const body = rows.map((row) => [
     row.accountName,
-    row.deliveryTime,
     row.articleTitle,
+    row.articleUrl ?? '',
     row.spendAmount,
     row.readCount,
     row.wechatAdds,
+    row.roi.toFixed(2),
+    row.deliveryTime,
     row.wechatAddCost.toFixed(2),
     percent(row.wechatAddRate),
     row.readCost.toFixed(2),
     row.dealCount,
     row.dealAmount,
-    row.roi.toFixed(2),
   ]);
   const csv = [header, ...body]
     .map((line) => line.map((cell) => `"${String(cell).split('"').join('""')}"`).join(','))
@@ -113,6 +115,7 @@ export function WeeklyTab() {
       accountName: '',
       deliveryTime: weekStartDate.hour(10),
       articleTitle: '',
+      articleUrl: '',
       spendAmount: 0,
       readCount: 0,
       wechatAdds: 0,
@@ -135,6 +138,7 @@ export function WeeklyTab() {
       accountName: values.accountName,
       deliveryTime: values.deliveryTime.format('YYYY-MM-DD HH:mm'),
       articleTitle: values.articleTitle,
+      articleUrl: values.articleUrl,
       spendAmount: values.spendAmount,
       readCount: values.readCount,
       wechatAdds: values.wechatAdds,
@@ -158,9 +162,14 @@ export function WeeklyTab() {
 
   const columns = useMemo<ColumnsType<WeeklyDeliveryView>>(
     () => [
-      { title: '账号', dataIndex: 'accountName', sorter: (a, b) => a.accountName.localeCompare(b.accountName), width: 150 },
-      { title: '投放时间', dataIndex: 'deliveryTime', sorter: (a, b) => dayjs(a.deliveryTime).valueOf() - dayjs(b.deliveryTime).valueOf(), width: 165 },
+      { title: '账号', dataIndex: 'accountName', sorter: (a, b) => a.accountName.localeCompare(b.accountName), fixed: 'left', width: 140 },
       { title: '标题', dataIndex: 'articleTitle', sorter: (a, b) => a.articleTitle.localeCompare(b.articleTitle), width: 260 },
+      {
+        title: '文章链接',
+        dataIndex: 'articleUrl',
+        render: (value?: string) => value ? <a href={value} target="_blank" rel="noreferrer">查看文章</a> : '-',
+        width: 110,
+      },
       { title: '金额', dataIndex: 'spendAmount', render: money, sorter: (a, b) => a.spendAmount - b.spendAmount, width: 120 },
       {
         title: '阅读量',
@@ -185,12 +194,13 @@ export function WeeklyTab() {
         width: 150,
       },
       { title: '加微量', dataIndex: 'wechatAdds', sorter: (a, b) => a.wechatAdds - b.wechatAdds, width: 100 },
-      { title: '加微成本', dataIndex: 'wechatAddCost', render: money, sorter: (a, b) => a.wechatAddCost - b.wechatAddCost, width: 120 },
-      { title: '加微率', dataIndex: 'wechatAddRate', render: percent, sorter: (a, b) => a.wechatAddRate - b.wechatAddRate, width: 100 },
-      { title: '阅读成本', dataIndex: 'readCost', render: money, sorter: (a, b) => a.readCost - b.readCost, width: 120 },
+      { title: 'ROI', dataIndex: 'roi', render: (roi: number) => <span className={`roi-value ${roiClass(roi)}`}>{roi.toFixed(2)}</span>, sorter: (a, b) => a.roi - b.roi, width: 90 },
+      { title: '投放时间', dataIndex: 'deliveryTime', render: (value: string) => dayjs(value).format('MM-DD HH:mm'), sorter: (a, b) => dayjs(a.deliveryTime).valueOf() - dayjs(b.deliveryTime).valueOf(), width: 110 },
+      { title: '加微成本', dataIndex: 'wechatAddCost', render: money, sorter: (a, b) => a.wechatAddCost - b.wechatAddCost, width: 115 },
+      { title: '加微率', dataIndex: 'wechatAddRate', render: percent, sorter: (a, b) => a.wechatAddRate - b.wechatAddRate, width: 95 },
+      { title: '阅读成本', dataIndex: 'readCost', render: money, sorter: (a, b) => a.readCost - b.readCost, width: 115 },
       { title: '成交量', dataIndex: 'dealCount', sorter: (a, b) => a.dealCount - b.dealCount, width: 100 },
       { title: '成交金额', dataIndex: 'dealAmount', render: money, sorter: (a, b) => a.dealAmount - b.dealAmount, width: 120 },
-      { title: 'ROI', dataIndex: 'roi', render: (roi: number) => <span className={`roi-value ${roiClass(roi)}`}>{roi.toFixed(2)}</span>, sorter: (a, b) => a.roi - b.roi, width: 90 },
       {
         title: '操作',
         fixed: 'right',
@@ -234,6 +244,7 @@ export function WeeklyTab() {
           <Form.Item name="accountName" label="账号" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="deliveryTime" label="投放时间" rules={[{ required: true }]}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="articleTitle" label="标题" rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item name="articleUrl" label="文章链接"><Input placeholder="https://" /></Form.Item>
           <Form.Item name="spendAmount" label="金额"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="readCount" label="阅读量"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="wechatAdds" label="加微量"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>

@@ -10,6 +10,7 @@ import {
   Select,
   Space,
   Table,
+  Tag,
   Upload,
   message,
 } from 'antd';
@@ -25,13 +26,15 @@ import {
   updatePlan,
   uploadPlanCsv,
 } from '../services/nextWeekService';
-import type { NextWeekPlan, PaymentStatus, WeeklyDeliveryView } from '../types/shared';
+import type { LayoutStatus, NextWeekPlan, PaymentStatus, WeeklyDeliveryView } from '../types/shared';
 
 interface PlanFormValues {
   accountName: string;
   plannedTime: Dayjs;
   articleTitle: string;
+  articleUrl?: string;
   plannedAmount: number;
+  layoutStatus: LayoutStatus;
   paymentStatus: PaymentStatus;
 }
 
@@ -40,6 +43,49 @@ const paymentOptions: Array<{ label: string; value: PaymentStatus }> = [
   { label: '部分付款', value: 'partial' },
   { label: '已付款', value: 'paid' },
 ];
+
+const layoutOptions: Array<{ label: string; value: LayoutStatus }> = [
+  { label: '未排版', value: 'pending' },
+  { label: '排版中', value: 'processing' },
+  { label: '已排版', value: 'done' },
+  { label: '已发布', value: 'published' },
+];
+
+const layoutStatusTheme: Record<LayoutStatus, { label: string; color: string; bg: string }> = {
+  pending: { label: '未排版', color: '#475569', bg: '#f1f5f9' },
+  processing: { label: '排版中', color: '#0369a1', bg: '#e0f2fe' },
+  done: { label: '已排版', color: '#15803d', bg: '#dcfce7' },
+  published: { label: '已发布', color: '#6d28d9', bg: '#ede9fe' },
+};
+
+const paymentStatusTheme: Record<PaymentStatus, { label: string; color: string; bg: string }> = {
+  unpaid: { label: '未付款', color: '#b91c1c', bg: '#fee2e2' },
+  partial: { label: '部分付款', color: '#b45309', bg: '#fef3c7' },
+  paid: { label: '已付款', color: '#15803d', bg: '#dcfce7' },
+};
+
+function StatusTag({
+  value,
+  theme,
+}: {
+  value: LayoutStatus | PaymentStatus;
+  theme: Record<string, { label: string; color: string; bg: string }>;
+}) {
+  const item = theme[value];
+  return (
+    <Tag
+      bordered={false}
+      style={{
+        background: item.bg,
+        color: item.color,
+        fontWeight: 700,
+        marginInlineEnd: 0,
+      }}
+    >
+      {item.label}
+    </Tag>
+  );
+}
 
 function money(value: number) {
   return `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -73,7 +119,9 @@ export function NextWeekTab() {
       accountName: '',
       plannedTime: dayjs().add(1, 'week').hour(10),
       articleTitle: '',
+      articleUrl: '',
       plannedAmount: 0,
+      layoutStatus: 'pending',
       paymentStatus: 'unpaid',
     });
     setOpen(true);
@@ -91,7 +139,9 @@ export function NextWeekTab() {
       accountName: values.accountName,
       plannedTime: values.plannedTime.format('YYYY-MM-DD HH:mm'),
       articleTitle: values.articleTitle,
+      articleUrl: values.articleUrl,
       plannedAmount: values.plannedAmount,
+      layoutStatus: values.layoutStatus,
       paymentStatus: values.paymentStatus,
     };
     if (editingRow) {
@@ -123,6 +173,29 @@ export function NextWeekTab() {
       { title: '标题', dataIndex: 'articleTitle', sorter: (a, b) => a.articleTitle.localeCompare(b.articleTitle), width: 300 },
       { title: '金额', dataIndex: 'plannedAmount', render: money, sorter: (a, b) => a.plannedAmount - b.plannedAmount, width: 130 },
       {
+        title: '排版状态',
+        dataIndex: 'layoutStatus',
+        render: (value: LayoutStatus, record) => (
+          <Select
+            value={value}
+            options={layoutOptions}
+            style={{ width: 120 }}
+            optionRender={(option) => (
+              <StatusTag value={option.value as LayoutStatus} theme={layoutStatusTheme} />
+            )}
+            labelRender={({ value }) => (
+              <StatusTag value={value as LayoutStatus} theme={layoutStatusTheme} />
+            )}
+            onChange={(layoutStatus) =>
+              void updatePlan(record.id, { layoutStatus }, currentOperator.name).then((nextRow) =>
+                setRows((prev) => prev.map((row) => (row.id === nextRow.id ? nextRow : row))),
+              )
+            }
+          />
+        ),
+        width: 150,
+      },
+      {
         title: '付款状态',
         dataIndex: 'paymentStatus',
         render: (value: PaymentStatus, record) => (
@@ -130,6 +203,12 @@ export function NextWeekTab() {
             value={value}
             options={paymentOptions}
             style={{ width: 120 }}
+            optionRender={(option) => (
+              <StatusTag value={option.value as PaymentStatus} theme={paymentStatusTheme} />
+            )}
+            labelRender={({ value }) => (
+              <StatusTag value={value as PaymentStatus} theme={paymentStatusTheme} />
+            )}
             onChange={(paymentStatus) =>
               void updatePlan(record.id, { paymentStatus }, currentOperator.name).then((nextRow) =>
                 setRows((prev) => prev.map((row) => (row.id === nextRow.id ? nextRow : row))),
@@ -180,7 +259,9 @@ export function NextWeekTab() {
           <Form.Item name="accountName" label="账号" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="plannedTime" label="计划时间" rules={[{ required: true }]}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="articleTitle" label="标题" rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item name="articleUrl" label="文章链接"><Input placeholder="https://" /></Form.Item>
           <Form.Item name="plannedAmount" label="金额"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="layoutStatus" label="排版状态"><Select options={layoutOptions} /></Form.Item>
           <Form.Item name="paymentStatus" label="付款状态"><Select options={paymentOptions} /></Form.Item>
         </Form>
       </Modal>
