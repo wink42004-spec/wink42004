@@ -42,11 +42,13 @@ export function AuditLogTab() {
           placeholder="操作类型"
           value={actionType}
           onChange={setActionType}
-          options={['新增', '修改', '上传', '删除', '自动更新阅读量'].map((value) => ({
-            label: value,
-            value,
-          }))}
-          style={{ width: 170 }}
+          options={['新增', '修改', '上传', '删除', '自动更新阅读量', '重算公式'].map(
+            (value) => ({
+              label: value,
+              value,
+            }),
+          )}
+          style={{ width: 180 }}
         />
         <DatePicker value={date} onChange={setDate} placeholder="操作日期" />
       </Space>

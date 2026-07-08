@@ -226,6 +226,30 @@ body {
   font-size: 14px;
 }
 
+.upload-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.upload-source-title {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 760;
+}
+
+.formula-column-title {
+  color: #0f62fe;
+  font-weight: 800;
+}
+
+.ant-table-cell.formula-cell {
+  background: rgba(14, 116, 255, 0.05);
+  color: #0f172a;
+  font-weight: 650;
+}
+
 .roi-value {
   font-weight: 760;
 }
@@ -482,5 +506,9 @@ body {
   .screen-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .upload-source-grid {
+    grid-template-columns: 1fr;
   }
 }

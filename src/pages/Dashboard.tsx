@@ -1,13 +1,15 @@
 import { Button, Layout, Modal, Space, Tabs, Tag, Typography, Upload, message } from 'antd';
+import type { UploadProps } from 'antd';
 import { useState } from 'react';
 import { PermissionNotice } from '../components/PermissionNotice';
 import { UserStatusBadge } from '../components/UserStatusBadge';
 import { useAuthContext } from '../context/AuthContext';
-import { uploadWeeklyCsv } from '../services/mockApi';
+import { uploadExcelDataSource } from '../services/mockApi';
 import { AuditLogTab } from '../tabs/AuditLogTab';
 import { HistoryTab } from '../tabs/HistoryTab';
 import { NextWeekTab } from '../tabs/NextWeekTab';
 import { WeeklyTab } from '../tabs/WeeklyTab';
+import type { ExcelSourceType } from '../types/shared';
 
 const { Header, Content } = Layout;
 
@@ -31,6 +33,25 @@ export function Dashboard({
     currentUser.status === 'guest' ||
     currentUser.status === 'approved' ||
     currentUser.isAdmin;
+
+  const uploadProps = (sourceType: ExcelSourceType): UploadProps => ({
+    accept: '.xlsx,.xls',
+    showUploadList: false,
+    beforeUpload: (file) => {
+      void file
+        .arrayBuffer()
+        .then((buffer) =>
+          uploadExcelDataSource(sourceType, file.name, buffer, currentUser.username),
+        )
+        .then((result) => {
+          message.success(
+            `已导入 ${result.sheetCount} 个 sheet，${result.rowCount} 条记录，版本号 V${result.versionNo}`,
+          );
+          setUploadOpen(false);
+        });
+      return false;
+    },
+  });
 
   return (
     <Layout className="app-shell">
@@ -67,7 +88,7 @@ export function Dashboard({
             <p className="overview-copy">
               {currentUser.status === 'guest'
                 ? '当前为访客模式，展示模拟数据。'
-                : `当前账号：${currentUser.username}。所有人查看同一套共享数据，新增、修改、上传、删除都会写入修改记录。`}
+                : `当前账号：${currentUser.username}。所有人查看同一套共享数据，上传 Excel 后会自动重算公式字段并写入修改记录。`}
             </p>
           </div>
           <div className="overview-signal" aria-hidden="true">
@@ -95,29 +116,26 @@ export function Dashboard({
         )}
       </Content>
       <Modal
-        title="上传共享投放数据"
+        title="上传 Excel 数据源"
         open={uploadOpen}
         onCancel={() => setUploadOpen(false)}
         footer={null}
+        width={760}
       >
-        <Upload.Dragger
-          accept=".csv"
-          showUploadList={false}
-          beforeUpload={(file) => {
-            void file.text().then((text) =>
-              uploadWeeklyCsv(text, currentUser.username).then(() => {
-                message.success('已上传到本期投放，并自动更新阅读量');
-                setUploadOpen(false);
-              }),
-            );
-            return false;
-          }}
-        >
-          <p>拖拽或点击上传 CSV</p>
-          <p className="upload-hint">
-            格式：周起始日期,账号,投放时间,标题,投放课程,文章链接,投放金额,阅读量,加微量,成交量,成交金额
-          </p>
-        </Upload.Dragger>
+        <div className="upload-source-grid">
+          <Upload.Dragger {...uploadProps('trainingCamp')}>
+            <p className="upload-source-title">训练营投放数据监测表</p>
+            <p className="upload-hint">
+              解析所有 sheet，sheet 名作为期次，表头作为本期投放字段。
+            </p>
+          </Upload.Dragger>
+          <Upload.Dragger {...uploadProps('officialAccount')}>
+            <p className="upload-source-title">公众号投放数据</p>
+            <p className="upload-hint">
+              读取投放数据明细、账号数据汇总、账号评估模型、标题 ROI 波动。
+            </p>
+          </Upload.Dragger>
+        </div>
       </Modal>
     </Layout>
   );

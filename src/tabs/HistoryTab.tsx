@@ -1,11 +1,17 @@
-import { Alert, Empty, Modal, Spin, Statistic, Table, Typography } from 'antd';
+import { Alert, Button, Empty, Modal, Space, Spin, Statistic, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LineChart } from '../components/LineChart';
 import { getHistoryDetails, getHistorySummary } from '../services/historyService';
+import {
+  exportVersionRecordsCsv,
+  getVersionRecords,
+} from '../services/mockApi';
 import type {
   AccountPerformance,
   HistorySummary,
+  VersionRecord,
   WeeklyDeliveryView,
 } from '../types/shared';
 
@@ -28,12 +34,25 @@ function roiClass(roi: number) {
   return 'roi-danger';
 }
 
+function downloadCsv(filename: string, csv: string) {
+  const url = URL.createObjectURL(
+    new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' }),
+  );
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function HistoryTab() {
   const [summary, setSummary] = useState<HistorySummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailAccount, setDetailAccount] = useState<string | null>(null);
   const [details, setDetails] = useState<WeeklyDeliveryView[]>([]);
+  const [versionOpen, setVersionOpen] = useState(false);
+  const [versionRows, setVersionRows] = useState<VersionRecord[]>([]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -52,6 +71,12 @@ export function HistoryTab() {
     setDetailAccount(accountName);
     setDetails(await getHistoryDetails(accountName));
   }, []);
+
+  const openVersions = async () => {
+    const rows = await getVersionRecords();
+    setVersionRows(rows.filter((row) => row.module === '历史汇总' || row.sheetName));
+    setVersionOpen(true);
+  };
 
   const columns = useMemo<ColumnsType<AccountPerformance>>(
     () => [
@@ -161,12 +186,7 @@ export function HistoryTab() {
     <div className="history-tab">
       <div className="history-kpi-grid">
         <article className="history-kpi-card">
-          <Statistic
-            title="累计投放金额"
-            value={summary.kpi.totalSpendAmount}
-            precision={2}
-            prefix="¥"
-          />
+          <Statistic title="累计投放金额" value={summary.kpi.totalSpendAmount} precision={2} prefix="¥" />
         </article>
         <article className="history-kpi-card">
           <Statistic title="累计获客" value={summary.kpi.totalLeads} />
@@ -178,17 +198,13 @@ export function HistoryTab() {
           <Statistic title="整体 ROI" value={summary.kpi.overallRoi} precision={2} />
         </article>
         <article className="history-kpi-card">
-          <Statistic
-            title="平均获客成本"
-            value={summary.kpi.averageLeadCost}
-            precision={2}
-            prefix="¥"
-          />
+          <Statistic title="平均获客成本" value={summary.kpi.averageLeadCost} precision={2} prefix="¥" />
         </article>
       </div>
       <section className="history-section">
         <div className="history-section-header">
           <Text strong>账号表现</Text>
+          <Button onClick={() => void openVersions()}>上传历史版本</Button>
         </div>
         <Table
           columns={columns}
@@ -231,9 +247,47 @@ export function HistoryTab() {
             { title: '标题', dataIndex: 'articleTitle' },
             { title: '投放课程', dataIndex: 'courseCode' },
             { title: '投放金额', dataIndex: 'spendAmount', render: money },
-            { title: '阅读量', dataIndex: 'readCount' },
+            { title: '广告阅读量', dataIndex: 'adReadCount' },
             { title: '成交金额', dataIndex: 'dealAmount', render: money },
             { title: 'ROI', dataIndex: 'roi', render: (value: number) => value.toFixed(2) },
+          ]}
+        />
+      </Modal>
+      <Modal
+        title="上传历史版本"
+        open={versionOpen}
+        onCancel={() => setVersionOpen(false)}
+        width={980}
+        footer={
+          <Space>
+            <Button onClick={() => setVersionOpen(false)}>关闭</Button>
+            <Button
+              type="primary"
+              disabled={versionRows.length === 0}
+              onClick={() =>
+                downloadCsv(
+                  `上传历史版本-${dayjs().format('YYYYMMDD-HHmmss')}.csv`,
+                  exportVersionRecordsCsv(versionRows),
+                )
+              }
+            >
+              下载 CSV
+            </Button>
+          </Space>
+        }
+      >
+        <Table
+          dataSource={versionRows}
+          rowKey="id"
+          pagination={{ pageSize: 6 }}
+          columns={[
+            { title: '版本号', dataIndex: 'versionNo', width: 90 },
+            { title: '上传人', dataIndex: 'uploadedBy', width: 120 },
+            { title: '上传时间', dataIndex: 'uploadedAt', width: 170 },
+            { title: 'Sheet', dataIndex: 'sheetName', width: 150 },
+            { title: '模块', dataIndex: 'module', width: 110 },
+            { title: '对象', dataIndex: 'targetName', width: 220 },
+            { title: '说明', dataIndex: 'after', ellipsis: true },
           ]}
         />
       </Modal>

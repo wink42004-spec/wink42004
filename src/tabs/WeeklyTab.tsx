@@ -10,6 +10,7 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
   Upload,
   message,
 } from 'antd';
@@ -35,15 +36,21 @@ import type {
 
 interface WeeklyFormValues {
   accountName: string;
+  paymentChannel?: string;
+  placement?: string;
   deliveryTime: Dayjs;
   articleTitle: string;
   courseCode?: string;
   articleUrl?: string;
+  previewUrl?: string;
+  qrCode?: string;
+  screenshot?: string;
   spendAmount: number;
-  readCount: number;
+  normalReadCount?: number;
+  adReadCount: number;
   wechatAdds: number;
   dealCount: number;
-  dealAmount: number;
+  coursePrice?: number;
 }
 
 function getCurrentMonday() {
@@ -69,6 +76,14 @@ function roiClass(roi: number) {
   return 'roi-danger';
 }
 
+function formulaTitle(title: string) {
+  return (
+    <Tooltip title="公式计算字段，系统自动计算">
+      <span className="formula-column-title">{title}</span>
+    </Tooltip>
+  );
+}
+
 function buildCsv(headers: string[], body: Array<Array<string | number | undefined>>) {
   return [headers, ...body]
     .map((line) =>
@@ -90,35 +105,53 @@ function downloadCsv(filename: string, csv: string) {
 
 function exportWeeklyCsv(rows: WeeklyDeliveryView[]) {
   const header = [
+    '期次',
     '账号',
-    '投放时间',
-    '标题',
+    '付款渠道',
+    '投放位置',
+    '发文时间',
+    '文章标题',
     '投放课程',
-    '文章链接',
+    '链接',
+    '预览链接',
+    '二维码',
+    '截图',
     '投放金额',
-    '阅读量',
+    '常文阅读量',
+    '广告阅读量',
     '加微量',
     '加微成本',
     '加微率',
     '阅读成本',
     '成交量',
+    '课程单价',
     '成交金额',
+    '转化率',
     'ROI',
   ];
   const body = rows.map((row) => [
+    row.period,
     row.accountName,
+    row.paymentChannel,
+    row.placement,
     row.deliveryTime,
     row.articleTitle,
     row.courseCode,
     row.articleUrl,
+    row.previewUrl,
+    row.qrCode,
+    row.screenshot,
     row.spendAmount,
-    row.readCount,
+    row.normalReadCount,
+    row.adReadCount,
     row.wechatAdds,
     row.wechatAddCost.toFixed(2),
     percent(row.wechatAddRate),
     row.readCost.toFixed(2),
     row.dealCount,
-    row.dealAmount,
+    row.coursePrice,
+    row.dealAmount.toFixed(2),
+    percent(row.conversionRate),
     row.roi.toFixed(2),
   ]);
   downloadCsv(
@@ -128,14 +161,16 @@ function exportWeeklyCsv(rows: WeeklyDeliveryView[]) {
 }
 
 function exportVersionCsv(rows: VersionRecord[], targetName: string) {
-  const header = ['版本时间', '操作人', '模块', '对象', '修改前', '修改后'];
+  const header = ['版本号', '上传人', '上传时间', 'Sheet', '版本时间', '操作账号', '修改前', '修改后'];
   const body = rows.map((row) => [
+    row.versionNo,
+    row.uploadedBy ?? row.operatorName,
+    row.uploadedAt ?? row.versionTime,
+    row.sheetName,
     row.versionTime,
     row.operatorName,
-    row.module,
-    row.targetName,
-    JSON.stringify(row.before),
-    JSON.stringify(row.after),
+    row.before,
+    row.after,
   ]);
   downloadCsv(
     `${targetName}-历史版本-${dayjs().format('YYYYMMDD-HHmmss')}.csv`,
@@ -179,15 +214,21 @@ export function WeeklyTab() {
     setEditingRow(null);
     form.setFieldsValue({
       accountName: '',
+      paymentChannel: '',
+      placement: '',
       deliveryTime: weekStartDate.hour(10),
       articleTitle: '',
       courseCode: '',
       articleUrl: '',
+      previewUrl: '',
+      qrCode: '',
+      screenshot: '',
       spendAmount: 0,
-      readCount: 0,
+      normalReadCount: 0,
+      adReadCount: 0,
       wechatAdds: 0,
       dealCount: 0,
-      dealAmount: 0,
+      coursePrice: 0,
     });
     setOpen(true);
   };
@@ -201,17 +242,26 @@ export function WeeklyTab() {
   const submit = async () => {
     const values = await form.validateFields();
     const payload = {
+      period: editingRow?.period ?? weekStartDate.format('YYYY-MM-DD'),
       weekStartDate: weekStartDate.format('YYYY-MM-DD'),
       accountName: values.accountName,
+      paymentChannel: values.paymentChannel,
+      placement: values.placement,
       deliveryTime: values.deliveryTime.format('YYYY-MM-DD HH:mm'),
       articleTitle: values.articleTitle,
       courseCode: values.courseCode,
       articleUrl: values.articleUrl,
+      previewUrl: values.previewUrl,
+      qrCode: values.qrCode,
+      screenshot: values.screenshot,
       spendAmount: values.spendAmount,
-      readCount: values.readCount,
+      normalReadCount: values.normalReadCount,
+      readCount: values.adReadCount,
+      adReadCount: values.adReadCount,
       wechatAdds: values.wechatAdds,
       dealCount: values.dealCount,
-      dealAmount: values.dealAmount,
+      coursePrice: values.coursePrice,
+      dealAmount: 0,
     };
     if (editingRow) {
       const nextRow = await updateWeeklyData(
@@ -224,7 +274,7 @@ export function WeeklyTab() {
       const nextRow = await createWeeklyData(payload, currentUser.username);
       setRows((prev) => [nextRow, ...prev]);
     }
-    message.success('已保存');
+    message.success('已保存，公式字段已自动重算');
     setOpen(false);
   };
 
@@ -235,6 +285,7 @@ export function WeeklyTab() {
 
   const columns = useMemo<ColumnsType<WeeklyDeliveryView>>(
     () => [
+      { title: '期次', dataIndex: 'period', width: 120 },
       {
         title: '账号',
         dataIndex: 'accountName',
@@ -242,33 +293,31 @@ export function WeeklyTab() {
         fixed: 'left',
         width: 140,
       },
+      { title: '付款渠道', dataIndex: 'paymentChannel', width: 110 },
+      { title: '投放位置', dataIndex: 'placement', width: 100 },
       {
-        title: '投放时间',
+        title: '发文时间',
         dataIndex: 'deliveryTime',
         render: (value: string) => dayjs(value).format('MM-DD HH:mm'),
         sorter: (a, b) =>
           dayjs(a.deliveryTime).valueOf() - dayjs(b.deliveryTime).valueOf(),
         width: 105,
       },
-      {
-        title: '标题',
-        dataIndex: 'articleTitle',
-        sorter: (a, b) => a.articleTitle.localeCompare(b.articleTitle),
-        width: 240,
-      },
+      { title: '文章标题', dataIndex: 'articleTitle', width: 240 },
       { title: '投放课程', dataIndex: 'courseCode', width: 120 },
       {
-        title: '文章链接',
+        title: '链接/预览',
         dataIndex: 'articleUrl',
-        render: (value?: string) =>
-          value ? (
-            <a href={value} target="_blank" rel="noreferrer">
-              查看文章
-            </a>
-          ) : (
-            '-'
-          ),
-        width: 105,
+        render: (_, row) => (
+          <Space size={6}>
+            {row.articleUrl ? <a href={row.articleUrl}>链接</a> : null}
+            {row.previewUrl ? <a href={row.previewUrl}>预览</a> : null}
+            {row.qrCode ? <a href={row.qrCode}>二维码</a> : null}
+            {row.screenshot ? <a href={row.screenshot}>截图</a> : null}
+            {!row.articleUrl && !row.previewUrl && !row.qrCode && !row.screenshot ? '-' : null}
+          </Space>
+        ),
+        width: 140,
       },
       {
         title: '投放金额',
@@ -278,55 +327,60 @@ export function WeeklyTab() {
         width: 120,
       },
       {
-        title: '阅读量',
-        dataIndex: 'readCount',
-        render: (value: number) => value.toLocaleString('zh-CN'),
-        sorter: (a, b) => a.readCount - b.readCount,
-        width: 110,
+        title: '常文阅读量',
+        dataIndex: 'normalReadCount',
+        render: (value?: number) => Number(value ?? 0).toLocaleString('zh-CN'),
+        width: 115,
       },
       {
-        title: '加微量',
-        dataIndex: 'wechatAdds',
-        sorter: (a, b) => a.wechatAdds - b.wechatAdds,
-        width: 95,
+        title: '广告阅读量',
+        dataIndex: 'adReadCount',
+        render: (value?: number) => Number(value ?? 0).toLocaleString('zh-CN'),
+        sorter: (a, b) => Number(a.adReadCount ?? 0) - Number(b.adReadCount ?? 0),
+        width: 115,
       },
+      { title: '加微量', dataIndex: 'wechatAdds', width: 95 },
       {
-        title: '加微成本',
+        title: formulaTitle('加微成本'),
         dataIndex: 'wechatAddCost',
+        className: 'formula-cell',
         render: money,
-        sorter: (a, b) => a.wechatAddCost - b.wechatAddCost,
         width: 110,
       },
       {
-        title: '加微率',
+        title: formulaTitle('加微率'),
         dataIndex: 'wechatAddRate',
+        className: 'formula-cell',
         render: percent,
-        sorter: (a, b) => a.wechatAddRate - b.wechatAddRate,
         width: 95,
       },
       {
-        title: '阅读成本',
+        title: formulaTitle('阅读成本'),
         dataIndex: 'readCost',
+        className: 'formula-cell',
         render: money,
-        sorter: (a, b) => a.readCost - b.readCost,
         width: 110,
       },
+      { title: '成交量', dataIndex: 'dealCount', width: 95 },
+      { title: '课程单价', dataIndex: 'coursePrice', render: money, width: 105 },
       {
-        title: '成交量',
-        dataIndex: 'dealCount',
-        sorter: (a, b) => a.dealCount - b.dealCount,
-        width: 95,
-      },
-      {
-        title: '成交金额',
+        title: formulaTitle('成交金额'),
         dataIndex: 'dealAmount',
+        className: 'formula-cell',
         render: money,
-        sorter: (a, b) => a.dealAmount - b.dealAmount,
         width: 120,
       },
       {
-        title: 'ROI',
+        title: formulaTitle('转化率'),
+        dataIndex: 'conversionRate',
+        className: 'formula-cell',
+        render: percent,
+        width: 95,
+      },
+      {
+        title: formulaTitle('ROI'),
         dataIndex: 'roi',
+        className: 'formula-cell',
         render: (roi: number) => (
           <span className={`roi-value ${roiClass(roi)}`}>{roi.toFixed(2)}</span>
         ),
@@ -373,24 +427,9 @@ export function WeeklyTab() {
       },
       { title: '标题', dataIndex: 'articleTitle', width: 240 },
       { title: '投放课程', dataIndex: 'courseCode', width: 120 },
-      {
-        title: '投放金额',
-        dataIndex: 'plannedAmount',
-        render: money,
-        width: 120,
-      },
-      {
-        title: '排版状态',
-        dataIndex: 'layoutStatus',
-        render: (value: string) => <Tag>{value}</Tag>,
-        width: 110,
-      },
-      {
-        title: '付款状态',
-        dataIndex: 'paymentStatus',
-        render: (value: string) => <Tag>{value}</Tag>,
-        width: 110,
-      },
+      { title: '投放金额', dataIndex: 'plannedAmount', render: money, width: 120 },
+      { title: '排版状态', dataIndex: 'layoutStatus', render: (value: string) => <Tag>{value}</Tag>, width: 110 },
+      { title: '付款状态', dataIndex: 'paymentStatus', render: (value: string) => <Tag>{value}</Tag>, width: 110 },
     ],
     [],
   );
@@ -415,7 +454,7 @@ export function WeeklyTab() {
                 .text()
                 .then((text) => uploadWeeklyCsv(text, currentUser.username))
                 .then(() => {
-                  message.success('上传成功，阅读量已自动更新并写入修改记录');
+                  message.success('上传成功，公式字段已自动重算并写入修改记录');
                   load();
                 });
               return false;
@@ -440,7 +479,7 @@ export function WeeklyTab() {
           dataSource={rows}
           loading={loading}
           rowKey="id"
-          scroll={{ x: 1800 }}
+          scroll={{ x: 2300 }}
         />
       </section>
 
@@ -470,26 +509,40 @@ export function WeeklyTab() {
           <Form.Item name="accountName" label="账号" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item
-            name="deliveryTime"
-            label="投放时间"
-            rules={[{ required: true }]}
-          >
+          <Form.Item name="paymentChannel" label="付款渠道">
+            <Input />
+          </Form.Item>
+          <Form.Item name="placement" label="投放位置">
+            <Input />
+          </Form.Item>
+          <Form.Item name="deliveryTime" label="发文时间" rules={[{ required: true }]}>
             <DatePicker showTime style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="articleTitle" label="投放标题" rules={[{ required: true }]}>
+          <Form.Item name="articleTitle" label="文章标题" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
           <Form.Item name="courseCode" label="投放课程">
             <Input placeholder="courseCode" />
           </Form.Item>
-          <Form.Item name="articleUrl" label="文章链接">
+          <Form.Item name="articleUrl" label="链接">
             <Input placeholder="https://" />
+          </Form.Item>
+          <Form.Item name="previewUrl" label="预览链接">
+            <Input placeholder="https://" />
+          </Form.Item>
+          <Form.Item name="qrCode" label="二维码">
+            <Input />
+          </Form.Item>
+          <Form.Item name="screenshot" label="截图">
+            <Input />
           </Form.Item>
           <Form.Item name="spendAmount" label="投放金额">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="readCount" label="阅读量">
+          <Form.Item name="normalReadCount" label="常文阅读量">
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="adReadCount" label="广告阅读量">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="wechatAdds" label="加微量">
@@ -498,9 +551,14 @@ export function WeeklyTab() {
           <Form.Item name="dealCount" label="成交量">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="dealAmount" label="成交金额">
+          <Form.Item name="coursePrice" label="课程单价">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
+          <Alert
+            showIcon
+            type="info"
+            message="加微成本、加微率、阅读成本、成交金额、转化率、ROI 为公式计算字段，系统自动计算，不支持手填。"
+          />
         </Form>
       </Modal>
 
@@ -528,18 +586,14 @@ export function WeeklyTab() {
           rowKey="id"
           pagination={{ pageSize: 5 }}
           columns={[
+            { title: '版本号', dataIndex: 'versionNo', width: 90 },
+            { title: '上传人', dataIndex: 'uploadedBy', width: 110 },
+            { title: '上传时间', dataIndex: 'uploadedAt', width: 170 },
+            { title: 'Sheet', dataIndex: 'sheetName', width: 120 },
             { title: '日期时间', dataIndex: 'versionTime', width: 170 },
             { title: '操作账号', dataIndex: 'operatorName', width: 120 },
-            {
-              title: '修改前',
-              dataIndex: 'before',
-              render: (value: unknown) => JSON.stringify(value),
-            },
-            {
-              title: '修改后',
-              dataIndex: 'after',
-              render: (value: unknown) => JSON.stringify(value),
-            },
+            { title: '修改前', dataIndex: 'before', ellipsis: true },
+            { title: '修改后', dataIndex: 'after', ellipsis: true },
           ]}
         />
       </Modal>
