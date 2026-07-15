@@ -17,6 +17,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { uploadTemplates } from '../config/uploadTemplates';
 import { useAuthContext } from '../context/AuthContext';
 import {
   createPlan,
@@ -43,6 +44,9 @@ interface PlanFormValues {
   layoutStatus: LayoutStatus;
   paymentStatus: PaymentStatus;
 }
+
+const nextUploadTemplate = uploadTemplates.next;
+const templateBaseUrl = 'templates/';
 
 const paymentOptions: Array<{ label: string; value: PaymentStatus }> = [
   { label: '未付款', value: 'unpaid' },
@@ -289,6 +293,12 @@ export function NextWeekTab() {
         <Space wrap>
           <Button type="primary" onClick={openCreate}>
             新增排期
+          </Button>
+          <Button
+            href={`${templateBaseUrl}${nextUploadTemplate.fileName}`}
+            download={nextUploadTemplate.fileName}
+          >
+            {`下载${nextUploadTemplate.name}.xlsx ${nextUploadTemplate.version}（${nextUploadTemplate.versionDate}）`}
           </Button>
           <Upload
             accept=".csv"

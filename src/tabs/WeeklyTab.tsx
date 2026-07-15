@@ -17,6 +17,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { uploadTemplates } from '../config/uploadTemplates';
 import { useAuthContext } from '../context/AuthContext';
 import { getNextWeekPlan } from '../services/nextWeekService';
 import {
@@ -52,6 +53,9 @@ interface WeeklyFormValues {
   dealCount: number;
   coursePrice?: number;
 }
+
+const weeklyUploadTemplate = uploadTemplates.weekly;
+const templateBaseUrl = 'templates/';
 
 function getCurrentMonday() {
   const today = dayjs();
@@ -445,6 +449,12 @@ export function WeeklyTab() {
           />
           <Button type="primary" onClick={openCreate}>
             新增投放
+          </Button>
+          <Button
+            href={`${templateBaseUrl}${weeklyUploadTemplate.fileName}`}
+            download={weeklyUploadTemplate.fileName}
+          >
+            {`下载${weeklyUploadTemplate.name}.xlsx ${weeklyUploadTemplate.version}（${weeklyUploadTemplate.versionDate}）`}
           </Button>
           <Upload
             accept=".csv"
