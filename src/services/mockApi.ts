@@ -169,6 +169,8 @@ const realCompanyPlans: NextWeekPlan[] = [
 
 let guestWeeklyRows = mockGuestWeeklyRows.map(recalculateWeeklyRow);
 let realWeeklyRows = realCompanyWeeklyRows.map(recalculateWeeklyRow);
+let guestArchivedWeeklyRows: WeeklyDelivery[] = [];
+let realArchivedWeeklyRows: WeeklyDelivery[] = [];
 let guestPlans = [...mockGuestPlans];
 let realPlans = [...realCompanyPlans];
 let versionRecords: VersionRecord[] = [];
@@ -214,6 +216,15 @@ function weeklyStore() {
 function setWeeklyStore(rows: WeeklyDelivery[]) {
   if (canReadRealData()) realWeeklyRows = rows;
   else guestWeeklyRows = rows;
+}
+
+function archivedWeeklyStore() {
+  return canReadRealData() ? realArchivedWeeklyRows : guestArchivedWeeklyRows;
+}
+
+function setArchivedWeeklyStore(rows: WeeklyDelivery[]) {
+  if (canReadRealData()) realArchivedWeeklyRows = rows;
+  else guestArchivedWeeklyRows = rows;
 }
 
 function planStore() {
@@ -322,6 +333,11 @@ function getAllWeeklyViews() {
   return weeklyStore().map(toWeeklyView);
 }
 
+function getHistoryWeeklyViews() {
+  if (!canReadAnyData()) return [];
+  return [...archivedWeeklyStore(), ...weeklyStore()].map(toWeeklyView);
+}
+
 export async function getTeachers() {
   await delay(120);
   return [...teachers];
@@ -398,6 +414,92 @@ export async function deleteWeeklyData(rowId: string, operatorName: string) {
 
 export async function uploadWeeklyCsv(text: string, operatorName: string) {
   return uploadDataFile('csv', 'weekly.csv', text, operatorName);
+}
+
+export async function archiveCurrentWeeklyData(operatorName: string) {
+  await delay();
+  const archivedAt = timestamp();
+  const currentRows = weeklyStore();
+  const planRows = planStore();
+  const archivedRows = currentRows.map((row) =>
+    recalculateWeeklyRow({
+      ...row,
+      period: row.period || row.weekStartDate,
+      updatedBy: operatorName,
+      updatedAt: archivedAt,
+      uploadedBy: row.uploadedBy ?? operatorName,
+      uploadedAt: row.uploadedAt ?? archivedAt,
+    }),
+  );
+  const nextWeeklyRows = planRows.map((plan, index) => {
+    const plannedDate = dayjs(plan.plannedTime);
+    const weekStartDate = plannedDate.isValid()
+      ? plannedDate.startOf('week').add(1, 'day').format('YYYY-MM-DD')
+      : dayjs().startOf('week').add(1, 'day').format('YYYY-MM-DD');
+    return recalculateWeeklyRow({
+      id: `weekly-from-plan-${Date.now()}-${index}`,
+      teacherId: plan.teacherId,
+      period: plan.period || weekStartDate,
+      weekStartDate,
+      accountName: plan.accountName,
+      placement: undefined,
+      deliveryTime: plan.plannedTime,
+      articleTitle: plan.articleTitle,
+      courseCode: plan.courseCode,
+      articleUrl: plan.articleUrl,
+      spendAmount: plan.plannedAmount,
+      readCount: 0,
+      adReadCount: 0,
+      wechatAdds: 0,
+      dealCount: 0,
+      coursePrice: 0,
+      dealAmount: 0,
+      createdBy: operatorName,
+      createdAt: archivedAt,
+      updatedBy: operatorName,
+      updatedAt: archivedAt,
+      uploadedBy: plan.uploadedBy ?? operatorName,
+      uploadedAt: plan.uploadedAt ?? archivedAt,
+      raw: {
+        sourcePlanId: plan.id,
+        paymentStatus: plan.paymentStatus,
+        layoutStatus: plan.layoutStatus,
+        contactPerson: plan.contactPerson ?? '',
+        remark: plan.remark ?? '',
+      },
+    });
+  });
+
+  setArchivedWeeklyStore([...archivedRows, ...archivedWeeklyStore()]);
+  setWeeklyStore(nextWeeklyRows);
+  setPlanStore([]);
+  writeAudit(
+    operatorName,
+    ACTION_UPDATE,
+    MODULE_WEEKLY,
+    '归档本期投放',
+    `Archived ${currentRows.length} current rows`,
+    `Promoted ${planRows.length} next rows`,
+  );
+  writeVersion(
+    MODULE_HISTORY,
+    `archive-${Date.now()}`,
+    '归档本期投放',
+    operatorName,
+    currentRows,
+    nextWeeklyRows,
+    {
+      uploadedBy: operatorName,
+      uploadedAt: archivedAt,
+      sheetName: '归档本期投放',
+      versionNo: ++uploadVersionNo,
+    },
+  );
+  return {
+    archivedCount: archivedRows.length,
+    promotedCount: nextWeeklyRows.length,
+    archivedAt,
+  };
 }
 
 export async function previewStandardExcelUpload(
@@ -732,12 +834,12 @@ export async function uploadPlanCsv(text: string, operatorName: string) {
 
 export async function getAccountHistory(accountName: string) {
   await delay();
-  return getAllWeeklyViews().filter((row) => row.accountName === accountName);
+  return getHistoryWeeklyViews().filter((row) => row.accountName === accountName);
 }
 
 export async function getHistorySummary(): Promise<HistorySummary> {
   await delay();
-  const rows = getAllWeeklyViews();
+  const rows = getHistoryWeeklyViews();
   const accountMap = new Map<string, WeeklyDeliveryView[]>();
   rows.forEach((row) => {
     accountMap.set(row.accountName, [...(accountMap.get(row.accountName) ?? []), row]);
@@ -749,9 +851,15 @@ export async function getHistorySummary(): Promise<HistorySummary> {
       const totalLeads = sum(list, 'wechatAdds');
       const totalDeals = sum(list, 'dealCount');
       const dealAmount = sum(list, 'dealAmount');
+      const uploadedAtList = list
+        .map((row) => row.uploadedAt ?? row.updatedAt ?? row.createdAt)
+        .filter(Boolean)
+        .sort();
       return {
         id: `perf-${index}`,
         accountName,
+        uploadedAt: uploadedAtList[uploadedAtList.length - 1],
+        periods: [...new Set(list.map((row) => row.period || row.weekStartDate).filter(Boolean))],
         accountLevel:
           accountLevelRules.get(accountName) ??
           inferAccountLevel(dealAmount / Math.max(totalSpendAmount, 1)),

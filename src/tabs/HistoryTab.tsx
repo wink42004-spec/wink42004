@@ -4,10 +4,7 @@ import dayjs from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LineChart } from '../components/LineChart';
 import { getHistoryDetails, getHistorySummary } from '../services/historyService';
-import {
-  exportVersionRecordsCsv,
-  getVersionRecords,
-} from '../services/mockApi';
+import { exportVersionRecordsCsv, getVersionRecords } from '../services/mockApi';
 import type {
   AccountPerformance,
   HistorySummary,
@@ -17,8 +14,8 @@ import type {
 
 const { Link, Text } = Typography;
 
-function money(value: number) {
-  return `¥${value.toLocaleString('zh-CN', {
+function money(value?: number) {
+  return `¥${Number(value ?? 0).toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -88,6 +85,20 @@ export function HistoryTab() {
         ),
         fixed: 'left',
         width: 170,
+      },
+      {
+        title: '上传时间',
+        dataIndex: 'uploadedAt',
+        render: (value?: string) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-'),
+        sorter: (a, b) =>
+          dayjs(a.uploadedAt ?? 0).valueOf() - dayjs(b.uploadedAt ?? 0).valueOf(),
+        width: 170,
+      },
+      {
+        title: '所属期数',
+        dataIndex: 'periods',
+        render: (value: string[]) => (value.length > 0 ? value.join('、') : '-'),
+        width: 180,
       },
       {
         title: '账号等级',
@@ -210,7 +221,7 @@ export function HistoryTab() {
           columns={columns}
           dataSource={summary.accountPerformance}
           rowKey="id"
-          scroll={{ x: 1500 }}
+          scroll={{ x: 1850 }}
         />
       </section>
       <div className="history-chart-grid">
@@ -236,13 +247,19 @@ export function HistoryTab() {
         open={Boolean(detailAccount)}
         onCancel={() => setDetailAccount(null)}
         footer={null}
-        width={900}
+        width={980}
       >
         <Table
           dataSource={details}
           rowKey="id"
           pagination={false}
           columns={[
+            { title: '所属期数', dataIndex: 'period' },
+            {
+              title: '上传时间',
+              dataIndex: 'uploadedAt',
+              render: (value?: string) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-'),
+            },
             { title: '投放时间', dataIndex: 'deliveryTime' },
             { title: '标题', dataIndex: 'articleTitle' },
             { title: '投放课程', dataIndex: 'courseCode' },

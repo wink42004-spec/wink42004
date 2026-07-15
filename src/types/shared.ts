@@ -90,6 +90,8 @@ export interface AccountPerformance {
   id: string;
   teacherId?: string;
   accountName: string;
+  uploadedAt?: string;
+  periods: string[];
   accountLevel: string;
   cooperationCount: number;
   totalReadCount: number;
