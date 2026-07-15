@@ -11,9 +11,9 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       locale={zhCN}
       theme={{
         token: {
-          colorPrimary: '#0ea5e9',
+          colorPrimary: '#06b6d4',
           borderRadius: 8,
-          colorBgLayout: '#edf3f8',
+          colorBgLayout: '#0b1726',
           colorSuccess: '#16a34a',
           colorWarning: '#ca8a04',
           colorError: '#dc2626',
@@ -22,14 +22,14 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
         },
         components: {
           Layout: {
-            headerBg: '#08111f',
-            bodyBg: '#edf3f8',
+            headerBg: '#050b16',
+            bodyBg: '#0b1726',
           },
           Button: {
             controlHeight: 34,
           },
           Table: {
-            headerBg: '#f2f7fb',
+            headerBg: '#eef6fb',
             rowHoverBg: '#f8fbff',
           },
         },

@@ -13,9 +13,9 @@ import {
 } from 'antd';
 import type { UploadProps } from 'antd';
 import { useState } from 'react';
-import { standardTemplateList } from '../config/uploadTemplates';
 import { PermissionNotice } from '../components/PermissionNotice';
 import { UserStatusBadge } from '../components/UserStatusBadge';
+import { standardTemplateList } from '../config/uploadTemplates';
 import { useAuthContext } from '../context/AuthContext';
 import {
   commitStandardExcelUpload,
@@ -37,6 +37,14 @@ interface DashboardProps {
 }
 
 const templateBaseUrl = 'templates/';
+
+function getModeLabel(status: string, isAdmin?: boolean) {
+  if (isAdmin) return 'ADMIN CONTROL';
+  if (status === 'guest') return 'MOCK DATA';
+  if (status === 'approved') return 'LIVE OPERATIONS';
+  if (status === 'pending') return 'PENDING REVIEW';
+  return 'ACCESS LIMITED';
+}
 
 export function Dashboard({
   onEnterScreen,
@@ -99,13 +107,17 @@ export function Dashboard({
   return (
     <Layout className="app-shell">
       <Header className="dashboard-header">
-        <div className="dashboard-heading">
-          <Typography.Title className="dashboard-title" level={1}>
-            公众号投放监控共享看板
-          </Typography.Title>
-          <span className="dashboard-subtitle">
-            Shared campaign intelligence console
-          </span>
+        <div className="dashboard-brand">
+          <div className="brand-mark">π</div>
+          <div className="dashboard-heading">
+            <span className="dashboard-kicker">RuView Inspired Console</span>
+            <Typography.Title className="dashboard-title" level={1}>
+              公众号投放监控共享看板
+            </Typography.Title>
+            <span className="dashboard-subtitle">
+              Shared Campaign Intelligence Console
+            </span>
+          </div>
         </div>
         <Space className="dashboard-actions" wrap>
           <UserStatusBadge
@@ -123,21 +135,30 @@ export function Dashboard({
       </Header>
       <Content className="dashboard-content">
         <section className="overview-panel">
-          <div>
+          <div className="overview-main">
             <Tag className="overview-tag">
-              {currentUser.status === 'guest' ? 'MOCK DATA' : 'LIVE OPERATIONS'}
+              {getModeLabel(currentUser.status, currentUser.isAdmin)}
             </Tag>
-            <h2 className="overview-title">共享投放数据中枢</h2>
+            <h2 className="overview-title">Campaign Signal Command Center</h2>
             <p className="overview-copy">
               {currentUser.status === 'guest'
-                ? '当前为访客模式，展示模拟数据。'
-                : `当前账号：${currentUser.username}。请使用标准模板上传，本期投放和下期排期会自动识别并预览。`}
+                ? '当前为访客模式，展示模拟数据。你可以浏览完整看板动线，但不会看到公司真实数据。'
+                : `当前账号：${currentUser.username}。系统会按标准模板识别本期投放和下期投放，并生成预览后再导入。`}
             </p>
           </div>
-          <div className="overview-signal" aria-hidden="true">
-            <span />
-            <span />
-            <span />
+          <div className="overview-command-grid" aria-label="console status">
+            <article>
+              <span>Data Mode</span>
+              <strong>{currentUser.status === 'guest' ? 'Mock' : 'Shared'}</strong>
+            </article>
+            <article>
+              <span>Operator</span>
+              <strong>{currentUser.username}</strong>
+            </article>
+            <article>
+              <span>Review</span>
+              <strong>{currentUser.isAdmin ? 'Admin' : currentUser.status}</strong>
+            </article>
           </div>
         </section>
         {!canViewData ? (

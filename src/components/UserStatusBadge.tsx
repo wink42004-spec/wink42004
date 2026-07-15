@@ -23,8 +23,8 @@ export function UserStatusBadge({
   const label = currentUser.isAdmin ? 'wyt 管理员' : statusLabel[currentUser.status];
 
   return (
-    <Space wrap>
-      <Tag color={currentUser.isAdmin ? 'cyan' : currentUser.status === 'guest' ? 'blue' : 'green'}>
+    <Space className="user-status-group" wrap>
+      <Tag className="identity-chip">
         {label}
       </Tag>
       {currentUser.status === 'guest' ? (

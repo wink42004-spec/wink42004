@@ -44,7 +44,6 @@ interface WeeklyFormValues {
   qrCode?: string;
   screenshot?: string;
   spendAmount: number;
-  normalReadCount?: number;
   adReadCount: number;
   wechatAdds: number;
   dealCount: number;
@@ -118,7 +117,6 @@ function exportWeeklyCsv(rows: WeeklyDeliveryView[]) {
     '二维码',
     '截图',
     '投放金额',
-    '常文阅读量',
     '广告阅读量',
     '加微量',
     '加微成本',
@@ -143,7 +141,6 @@ function exportWeeklyCsv(rows: WeeklyDeliveryView[]) {
     row.qrCode,
     row.screenshot,
     row.spendAmount,
-    row.normalReadCount,
     row.adReadCount,
     row.wechatAdds,
     row.wechatAddCost.toFixed(2),
@@ -174,6 +171,10 @@ function exportVersionCsv(rows: VersionRecord[], targetName: string) {
     `${targetName}-历史版本-${dayjs().format('YYYYMMDD-HHmmss')}.csv`,
     buildCsv(header, body),
   );
+}
+
+function getTeacherDisplayName(row: WeeklyDeliveryView) {
+  return row.teacherId ?? row.uploadedBy ?? row.createdBy ?? '-';
 }
 
 export function WeeklyTab() {
@@ -215,7 +216,6 @@ export function WeeklyTab() {
       qrCode: '',
       screenshot: '',
       spendAmount: 0,
-      normalReadCount: 0,
       adReadCount: 0,
       wechatAdds: 0,
       dealCount: 0,
@@ -246,7 +246,6 @@ export function WeeklyTab() {
       qrCode: values.qrCode,
       screenshot: values.screenshot,
       spendAmount: values.spendAmount,
-      normalReadCount: values.normalReadCount,
       readCount: values.adReadCount,
       adReadCount: values.adReadCount,
       wechatAdds: values.wechatAdds,
@@ -278,11 +277,28 @@ export function WeeklyTab() {
     () => [
       { title: '期次', dataIndex: 'period', width: 120 },
       {
+        title: '序号',
+        key: 'sequence',
+        render: (_value, _record, index) => index + 1,
+        sorter: (a, b) =>
+          rows.findIndex((row) => row.id === a.id) -
+          rows.findIndex((row) => row.id === b.id),
+        fixed: 'left',
+        width: 80,
+      },
+      {
         title: '账号',
         dataIndex: 'accountName',
         sorter: (a, b) => a.accountName.localeCompare(b.accountName),
         fixed: 'left',
         width: 140,
+      },
+      {
+        title: '讲师',
+        dataIndex: 'teacherId',
+        render: (_value: string | undefined, row) => getTeacherDisplayName(row),
+        sorter: (a, b) => getTeacherDisplayName(a).localeCompare(getTeacherDisplayName(b)),
+        width: 110,
       },
       { title: '付款渠道', dataIndex: 'paymentChannel', width: 110 },
       { title: '投放位置', dataIndex: 'placement', width: 100 },
@@ -294,7 +310,12 @@ export function WeeklyTab() {
         width: 105,
       },
       { title: '文章标题', dataIndex: 'articleTitle', width: 240 },
-      { title: '投放课程', dataIndex: 'courseCode', width: 120 },
+      {
+        title: '投放课程',
+        dataIndex: 'courseCode',
+        sorter: (a, b) => (a.courseCode ?? '').localeCompare(b.courseCode ?? ''),
+        width: 120,
+      },
       {
         title: '链接/预览',
         dataIndex: 'articleUrl',
@@ -315,12 +336,6 @@ export function WeeklyTab() {
         render: money,
         sorter: (a, b) => a.spendAmount - b.spendAmount,
         width: 120,
-      },
-      {
-        title: '常文阅读量',
-        dataIndex: 'normalReadCount',
-        render: (value?: number) => Number(value ?? 0).toLocaleString('zh-CN'),
-        width: 115,
       },
       {
         title: '广告阅读量',
@@ -403,7 +418,7 @@ export function WeeklyTab() {
         ),
       },
     ],
-    [currentUser.username, load],
+    [currentUser.username, load, rows],
   );
 
   return (
@@ -455,7 +470,7 @@ export function WeeklyTab() {
           dataSource={rows}
           loading={loading}
           rowKey="id"
-          scroll={{ x: 2300 }}
+          scroll={{ x: 2500 }}
         />
       </section>
 
@@ -498,9 +513,6 @@ export function WeeklyTab() {
             <Input placeholder="图片链接或文件地址" />
           </Form.Item>
           <Form.Item name="spendAmount" label="投放金额">
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="normalReadCount" label="常文阅读量">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="adReadCount" label="广告阅读量">

@@ -48,7 +48,6 @@ export interface WeeklyDelivery extends AuditFields {
   qrCode?: string;
   screenshot?: string;
   spendAmount: number;
-  normalReadCount?: number;
   readCount: number;
   adReadCount?: number;
   wechatAdds: number;
