@@ -1,5 +1,4 @@
 export {
-  archiveCurrentWeeklyData,
   createWeeklyData,
   deleteWeeklyData,
   getVersionRecords,
