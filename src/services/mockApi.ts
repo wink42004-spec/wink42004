@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
+import { uploadTemplates } from '../config/uploadTemplates';
 import { getCurrentUserSync } from './mockAuthApi';
 import type {
   AccountPerformance,
@@ -12,6 +13,7 @@ import type {
   HistorySummary,
   NextWeekPlan,
   PaymentStatus,
+  StandardUploadPreview,
   Teacher,
   UploadSourceType,
   VersionRecord,
@@ -398,12 +400,144 @@ export async function uploadWeeklyCsv(text: string, operatorName: string) {
   return uploadDataFile('csv', 'weekly.csv', text, operatorName);
 }
 
+export async function previewStandardExcelUpload(
+  fileName: string,
+  buffer: ArrayBuffer,
+): Promise<StandardUploadPreview> {
+  await delay(80);
+  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+  const sheetName = uploadTemplates.weekly.sheetName;
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) {
+    return {
+      fileName,
+      sheetName,
+      headers: [],
+      missingFields: [sheetName],
+      totalRows: 0,
+      validRows: 0,
+      errors: [{ rowNumber: 0, reason: '缺少 Sheet：上传数据' }],
+      rows: [],
+    };
+  }
+
+  const matrix = XLSX.utils.sheet_to_json<Array<string | number | Date>>(sheet, {
+    header: 1,
+    defval: '',
+    raw: true,
+  });
+  const headerIndex = matrix.findIndex((row) => row.some((cell) => String(cell).trim()));
+  if (headerIndex < 0) {
+    return {
+      fileName,
+      sheetName,
+      headers: [],
+      missingFields: [],
+      totalRows: 0,
+      validRows: 0,
+      errors: [{ rowNumber: 0, reason: 'Sheet 为空' }],
+      rows: [],
+    };
+  }
+
+  const headers = matrix[headerIndex].map((cell) => normalizeHeader(String(cell)));
+  const kind = detectTemplateKind(headers);
+  const config = kind ? uploadTemplates[kind] : undefined;
+  const missingFields = config
+    ? config.requiredFields.filter((field) => !headers.includes(normalizeHeader(field)))
+    : ['无法识别模板字段'];
+  const rows: Array<Record<string, string | number>> = [];
+  const errors: Array<{ rowNumber: number; reason: string }> = [];
+
+  matrix.slice(headerIndex + 1).forEach((line, index) => {
+    const rowNumber = headerIndex + index + 2;
+    if (line.every((cell) => String(cell ?? '').trim() === '')) return;
+    const row: Record<string, string | number> = {};
+    headers.forEach((header, cellIndex) => {
+      if (!header) return;
+      row[header] = normalizeCellValue(line[cellIndex]);
+    });
+    if (shouldSkipRow(row, sheetName)) return;
+    if (config) {
+      const blankFields = config.requiredFields.filter((field) => {
+        const value = row[normalizeHeader(field)];
+        return value === undefined || String(value).trim() === '';
+      });
+      if (blankFields.length > 0) {
+        errors.push({ rowNumber, reason: `必填字段为空：${blankFields.join('、')}` });
+      }
+    }
+    rows.push(row);
+  });
+
+  return {
+    fileName,
+    kind,
+    templateName: config?.name,
+    sheetName,
+    headers,
+    missingFields,
+    totalRows: rows.length,
+    validRows: missingFields.length === 0 ? rows.length - errors.length : 0,
+    errors,
+    rows,
+  };
+}
+
+export async function commitStandardExcelUpload(
+  preview: StandardUploadPreview,
+  operatorName: string,
+): Promise<ExcelUploadResult> {
+  await delay();
+  if (!preview.kind) throw new Error('无法识别上传模板');
+  if (preview.missingFields.length > 0) throw new Error('模板字段不完整');
+  if (preview.errors.length > 0) throw new Error('存在错误行，无法导入');
+
+  uploadVersionNo += 1;
+  const versionNo = uploadVersionNo;
+  const uploadedAt = timestamp();
+
+  if (preview.kind === 'weekly') {
+    const weeklyRows = preview.rows.map((row, index) =>
+      standardRowToWeekly(row, index, operatorName, uploadedAt),
+    );
+    setWeeklyStore([...weeklyRows, ...weeklyStore()]);
+    writeAudit(operatorName, ACTION_UPLOAD, MODULE_WEEKLY, preview.fileName, '-', `Imported ${weeklyRows.length} rows`);
+    writeAudit(operatorName, ACTION_RECALC, MODULE_WEEKLY, preview.fileName, '-', 'Formula fields recalculated');
+  } else {
+    const planRows = preview.rows.map((row, index) =>
+      standardRowToPlan(row, index, operatorName, uploadedAt),
+    );
+    setPlanStore([...planStore(), ...planRows]);
+    writeAudit(operatorName, ACTION_UPLOAD, MODULE_NEXT, preview.fileName, '-', `Imported ${planRows.length} rows`);
+  }
+
+  writeVersion(preview.kind === 'weekly' ? MODULE_WEEKLY : MODULE_NEXT, `standard-upload-${versionNo}`, preview.fileName, operatorName, '-', `Imported ${preview.validRows} rows`, {
+    uploadedBy: operatorName,
+    uploadedAt,
+    sheetName: preview.sheetName,
+    versionNo,
+  });
+
+  return {
+    sourceType: preview.kind === 'weekly' ? 'trainingCamp' : 'officialAccount',
+    fileName: preview.fileName,
+    sheetCount: 1,
+    rowCount: preview.validRows,
+    versionNo,
+    structured: true,
+  };
+}
+
 export async function uploadExcelDataSource(
   sourceType: ExcelSourceType,
   fileName: string,
   buffer: ArrayBuffer,
   operatorName: string,
 ): Promise<ExcelUploadResult> {
+  const preview = await previewStandardExcelUpload(fileName, buffer);
+  const result = await commitStandardExcelUpload(preview, operatorName);
+  return { ...result, sourceType };
   await delay();
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   uploadVersionNo += 1;
@@ -844,4 +978,119 @@ function inferAccountLevel(roi: number) {
   if (roi >= 1.5) return 'A';
   if (roi >= 1) return 'B';
   return 'C';
+}
+
+function detectTemplateKind(headers: string[]) {
+  const normalizedWeeklyFields = uploadTemplates.weekly.detectFields.map(normalizeHeader);
+  const normalizedNextFields = uploadTemplates.next.detectFields.map(normalizeHeader);
+  if (normalizedWeeklyFields.every((field) => headers.includes(field))) return 'weekly';
+  if (normalizedNextFields.every((field) => headers.includes(field))) return 'next';
+  return undefined;
+}
+
+function normalizeCellValue(value: string | number | Date | undefined) {
+  if (value instanceof Date) return dayjs(value).format('YYYY-MM-DD');
+  if (value === undefined || value === null) return '';
+  return typeof value === 'number' ? value : String(value).trim();
+}
+
+function standardRowToWeekly(
+  row: Record<string, string | number>,
+  index: number,
+  operatorName: string,
+  uploadedAt: string,
+): WeeklyDelivery {
+  const deliveryTime = parseDateValue(row[normalizeHeader('发文日期')]) || uploadedAt;
+  return recalculateWeeklyRow({
+    id: `weekly-template-${Date.now()}-${index}`,
+    period: stringFromRow(row, '投放周期'),
+    weekStartDate: dayjs(deliveryTime).isValid()
+      ? dayjs(deliveryTime).startOf('week').add(1, 'day').format('YYYY-MM-DD')
+      : dayjs().startOf('week').add(1, 'day').format('YYYY-MM-DD'),
+    accountName: stringFromRow(row, '公众号名称') || '未命名账号',
+    placement: stringFromRow(row, '投放位置'),
+    deliveryTime,
+    articleTitle: stringFromRow(row, '文章标题') || '未命名标题',
+    articleUrl: stringFromRow(row, '文章链接'),
+    spendAmount: parseMoney(row[normalizeHeader('投放金额')]),
+    readCount: parseNumber(row[normalizeHeader('阅读量')]),
+    adReadCount: parseNumber(row[normalizeHeader('阅读量')]),
+    wechatAdds: parseNumber(row[normalizeHeader('加微量')]),
+    dealCount: parseNumber(row[normalizeHeader('成交量')]),
+    dealAmount: parseMoney(row[normalizeHeader('成交金额')]),
+    raw: row,
+    createdBy: operatorName,
+    createdAt: uploadedAt,
+    updatedBy: operatorName,
+    updatedAt: uploadedAt,
+    uploadedBy: operatorName,
+    uploadedAt,
+  });
+}
+
+function standardRowToPlan(
+  row: Record<string, string | number>,
+  index: number,
+  operatorName: string,
+  uploadedAt: string,
+): NextWeekPlan {
+  return {
+    id: `plan-template-${Date.now()}-${index}`,
+    period: stringFromRow(row, '投放周期'),
+    accountName: stringFromRow(row, '公众号名称') || '未命名账号',
+    plannedTime: parseDateValue(row[normalizeHeader('计划投放日期')]) || uploadedAt,
+    articleTitle: stringFromRow(row, '文章标题') || '未命名标题',
+    plannedAmount: parseMoney(row[normalizeHeader('计划金额')]),
+    paymentStatus: parsePaymentStatus(stringFromRow(row, '付款状态')),
+    layoutStatus: parseLayoutStatus(stringFromRow(row, '发布状态')),
+    contactPerson: stringFromRow(row, '对接人'),
+    remark: stringFromRow(row, '备注'),
+    sortOrder: planStore().length + index + 1,
+    createdBy: operatorName,
+    createdAt: uploadedAt,
+    updatedBy: operatorName,
+    updatedAt: uploadedAt,
+    uploadedBy: operatorName,
+    uploadedAt,
+  };
+}
+
+function stringFromRow(row: Record<string, string | number>, field: string) {
+  const value = row[normalizeHeader(field)];
+  return value === undefined ? undefined : String(value).trim() || undefined;
+}
+
+function parseDateValue(value: string | number | undefined) {
+  if (value === undefined || value === '') return undefined;
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) return dayjs(new Date(parsed.y, parsed.m - 1, parsed.d)).format('YYYY-MM-DD');
+  }
+  const text = String(value).trim();
+  const parsed = dayjs(text);
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD') : text;
+}
+
+function parseMoney(value: string | number | undefined) {
+  return parseNumber(value);
+}
+
+function parseNumber(value: string | number | undefined) {
+  if (value === undefined || value === '') return 0;
+  const normalized = String(value).replace(/人民币|元|￥|¥|,/g, '').trim();
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function parsePaymentStatus(value?: string): PaymentStatus {
+  if (value?.includes('已')) return 'paid';
+  if (value?.includes('部分')) return 'partial';
+  return 'unpaid';
+}
+
+function parseLayoutStatus(value?: string): NextWeekPlan['layoutStatus'] {
+  if (value?.includes('已发') || value?.includes('发布')) return 'published';
+  if (value?.includes('已排')) return 'done';
+  if (value?.includes('中')) return 'processing';
+  return 'pending';
 }

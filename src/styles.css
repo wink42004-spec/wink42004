@@ -239,6 +239,18 @@ body {
   font-weight: 760;
 }
 
+.template-actions,
+.upload-preview {
+  margin-bottom: 16px;
+}
+
+.upload-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
 .formula-column-title {
   color: #0f62fe;
   font-weight: 800;

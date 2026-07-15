@@ -72,6 +72,7 @@ export type LayoutStatus = 'pending' | 'processing' | 'done' | 'published';
 export interface NextWeekPlan extends AuditFields {
   id: string;
   teacherId?: string;
+  period?: string;
   accountName: string;
   plannedTime: string;
   articleTitle: string;
@@ -80,6 +81,8 @@ export interface NextWeekPlan extends AuditFields {
   plannedAmount: number;
   layoutStatus: LayoutStatus;
   paymentStatus: PaymentStatus;
+  contactPerson?: string;
+  remark?: string;
   sortOrder: number;
 }
 
@@ -169,4 +172,24 @@ export interface ExcelUploadResult {
   rowCount: number;
   versionNo: number;
   structured: boolean;
+}
+
+export type StandardUploadKind = 'weekly' | 'next';
+
+export interface UploadRowError {
+  rowNumber: number;
+  reason: string;
+}
+
+export interface StandardUploadPreview {
+  fileName: string;
+  kind?: StandardUploadKind;
+  templateName?: string;
+  sheetName?: string;
+  headers: string[];
+  missingFields: string[];
+  totalRows: number;
+  validRows: number;
+  errors: UploadRowError[];
+  rows: Array<Record<string, string | number>>;
 }

@@ -1,15 +1,31 @@
-import { Button, Layout, Modal, Space, Tabs, Tag, Typography, Upload, message } from 'antd';
-import type { UploadFile, UploadProps } from 'antd';
+import {
+  Alert,
+  Button,
+  Layout,
+  Modal,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Typography,
+  Upload,
+  message,
+} from 'antd';
+import type { UploadProps } from 'antd';
 import { useState } from 'react';
+import { standardTemplateList } from '../config/uploadTemplates';
 import { PermissionNotice } from '../components/PermissionNotice';
 import { UserStatusBadge } from '../components/UserStatusBadge';
 import { useAuthContext } from '../context/AuthContext';
-import { uploadDataFile } from '../services/mockApi';
+import {
+  commitStandardExcelUpload,
+  previewStandardExcelUpload,
+} from '../services/mockApi';
 import { AuditLogTab } from '../tabs/AuditLogTab';
 import { HistoryTab } from '../tabs/HistoryTab';
 import { NextWeekTab } from '../tabs/NextWeekTab';
 import { WeeklyTab } from '../tabs/WeeklyTab';
-import type { UploadSourceType } from '../types/shared';
+import type { StandardUploadPreview } from '../types/shared';
 
 const { Header, Content } = Layout;
 
@@ -20,17 +36,7 @@ interface DashboardProps {
   onReview: () => void;
 }
 
-const uploadAccept = '.xlsx,.xls,.csv,.docx,.pdf,.png,.jpg,.jpeg,.webp';
-
-function getUploadSourceType(fileName: string): UploadSourceType | null {
-  const ext = fileName.split('.').pop()?.toLowerCase();
-  if (ext === 'xlsx' || ext === 'xls') return 'trainingCamp';
-  if (ext === 'csv') return 'csv';
-  if (ext === 'docx') return 'document';
-  if (ext === 'pdf') return 'pdf';
-  if (ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'webp') return 'image';
-  return null;
-}
+const templateBaseUrl = 'templates/';
 
 export function Dashboard({
   onEnterScreen,
@@ -40,6 +46,8 @@ export function Dashboard({
 }: DashboardProps) {
   const { currentUser } = useAuthContext();
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [preview, setPreview] = useState<StandardUploadPreview | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const canViewData =
     currentUser.status === 'guest' ||
@@ -47,34 +55,46 @@ export function Dashboard({
     currentUser.isAdmin;
 
   const uploadProps: UploadProps = {
-    accept: uploadAccept,
-    multiple: true,
+    accept: '.xlsx,.xls',
+    multiple: false,
     showUploadList: false,
-    beforeUpload: (file: UploadFile) => {
-      const realFile = file as unknown as File;
-      const sourceType = getUploadSourceType(realFile.name);
-      if (!sourceType) {
-        message.error('暂不支持该文件格式');
-        return false;
-      }
-      const readFile =
-        sourceType === 'csv' ? realFile.text() : realFile.arrayBuffer();
-      void readFile
-        .then((content) =>
-          uploadDataFile(sourceType, realFile.name, content, currentUser.username),
-        )
+    beforeUpload: (file) => {
+      const realFile = file as File;
+      void realFile
+        .arrayBuffer()
+        .then((buffer) => previewStandardExcelUpload(realFile.name, buffer))
         .then((result) => {
-          if (result.structured) {
-            message.success(
-              `已结构化导入 ${result.rowCount} 条记录，版本号 V${result.versionNo}`,
-            );
+          setPreview(result);
+          if (result.missingFields.length > 0 || result.errors.length > 0) {
+            message.warning('文件已解析，请先处理字段或行错误');
           } else {
-            message.success(`已上传附件并记录版本 V${result.versionNo}`);
+            message.success(`识别成功：${result.validRows} 条`);
           }
         });
       return false;
     },
   };
+
+  const confirmImport = async () => {
+    if (!preview) return;
+    setUploading(true);
+    try {
+      const result = await commitStandardExcelUpload(preview, currentUser.username);
+      message.success(`导入成功：${result.rowCount} 条，版本 V${result.versionNo}`);
+      setPreview(null);
+      setUploadOpen(false);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '导入失败');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const canImport =
+    Boolean(preview?.kind) &&
+    preview?.missingFields.length === 0 &&
+    preview?.errors.length === 0 &&
+    preview.validRows > 0;
 
   return (
     <Layout className="app-shell">
@@ -111,7 +131,7 @@ export function Dashboard({
             <p className="overview-copy">
               {currentUser.status === 'guest'
                 ? '当前为访客模式，展示模拟数据。'
-                : `当前账号：${currentUser.username}。Excel / CSV 会结构化导入本期投放，Word / PDF / 图片会作为附件记录。`}
+                : `当前账号：${currentUser.username}。请使用标准模板上传，本期投放和下期排期会自动识别并预览。`}
             </p>
           </div>
           <div className="overview-signal" aria-hidden="true">
@@ -139,21 +159,68 @@ export function Dashboard({
         )}
       </Content>
       <Modal
-        title="上传数据文件"
+        title="上传标准模板"
         open={uploadOpen}
-        onCancel={() => setUploadOpen(false)}
-        footer={null}
-        width={760}
+        onCancel={() => {
+          setUploadOpen(false);
+          setPreview(null);
+        }}
+        onOk={() => void confirmImport()}
+        okText="确认导入"
+        okButtonProps={{ disabled: !canImport, loading: uploading }}
+        width={860}
       >
+        <Space wrap className="template-actions">
+          {standardTemplateList.map((template) => (
+            <Button
+              key={template.kind}
+              href={`${templateBaseUrl}${template.fileName}`}
+              download
+            >
+              下载{template.name}.xlsx {template.version}（{template.versionDate}）
+            </Button>
+          ))}
+        </Space>
         <Upload.Dragger {...uploadProps}>
-          <p className="upload-source-title">拖拽或点击上传文件</p>
+          <p className="upload-source-title">拖拽或点击上传 Excel 模板</p>
           <p className="upload-hint">
-            Excel（.xlsx/.xls）和 CSV（.csv）会解析 sheet、表头、数据行与公式字段，并写入本期投放数据。
-          </p>
-          <p className="upload-hint">
-            Word（.docx）、PDF（.pdf）和图片（.png/.jpg/.jpeg/.webp）会作为附件记录上传历史。
+            仅支持两个标准模板，系统会按字段名识别，不按列位置识别。
           </p>
         </Upload.Dragger>
+        {preview ? (
+          <div className="upload-preview">
+            <Alert
+              showIcon
+              type={canImport ? 'success' : 'warning'}
+              message={
+                canImport
+                  ? `识别为：${preview.templateName}，可导入 ${preview.validRows} 条`
+                  : '文件暂不可导入'
+              }
+              description={`总行数 ${preview.totalRows}，成功 ${preview.validRows}，错误 ${preview.errors.length}`}
+            />
+            {preview.missingFields.length > 0 ? (
+              <Alert
+                showIcon
+                type="error"
+                message="缺少字段"
+                description={preview.missingFields.join('、')}
+              />
+            ) : null}
+            {preview.errors.length > 0 ? (
+              <Table
+                size="small"
+                rowKey={(row) => `${row.rowNumber}-${row.reason}`}
+                dataSource={preview.errors}
+                pagination={false}
+                columns={[
+                  { title: '错误行号', dataIndex: 'rowNumber', width: 120 },
+                  { title: '原因', dataIndex: 'reason' },
+                ]}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </Modal>
     </Layout>
   );
