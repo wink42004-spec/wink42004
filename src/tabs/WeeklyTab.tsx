@@ -9,7 +9,6 @@ import {
   Popconfirm,
   Space,
   Table,
-  Tag,
   Tooltip,
   Upload,
   message,
@@ -19,7 +18,6 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { uploadTemplates } from '../config/uploadTemplates';
 import { useAuthContext } from '../context/AuthContext';
-import { getNextWeekPlan } from '../services/nextWeekService';
 import {
   createWeeklyData,
   deleteWeeklyData,
@@ -29,7 +27,6 @@ import {
   uploadWeeklyCsv,
 } from '../services/weeklyService';
 import type {
-  NextWeekPlan,
   VersionRecord,
   WeeklyDelivery,
   WeeklyDeliveryView,
@@ -63,8 +60,8 @@ function getCurrentMonday() {
   return today.subtract(day === 0 ? 6 : day - 1, 'day').startOf('day');
 }
 
-function money(value: number) {
-  return `¥${value.toLocaleString('zh-CN', {
+function money(value?: number) {
+  return `¥${Number(value ?? 0).toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -158,10 +155,7 @@ function exportWeeklyCsv(rows: WeeklyDeliveryView[]) {
     percent(row.conversionRate),
     row.roi.toFixed(2),
   ]);
-  downloadCsv(
-    `本期投放-${dayjs().format('YYYYMMDD-HHmmss')}.csv`,
-    buildCsv(header, body),
-  );
+  downloadCsv(`本期投放-${dayjs().format('YYYYMMDD-HHmmss')}.csv`, buildCsv(header, body));
 }
 
 function exportVersionCsv(rows: VersionRecord[], targetName: string) {
@@ -187,7 +181,6 @@ export function WeeklyTab() {
   const [form] = Form.useForm<WeeklyFormValues>();
   const [weekStartDate, setWeekStartDate] = useState(getCurrentMonday());
   const [rows, setRows] = useState<WeeklyDeliveryView[]>([]);
-  const [pendingRows, setPendingRows] = useState<NextWeekPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingRow, setEditingRow] = useState<WeeklyDeliveryView | null>(null);
@@ -198,14 +191,8 @@ export function WeeklyTab() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    void Promise.all([
-      getWeeklyData(weekStartDate.format('YYYY-MM-DD')),
-      getNextWeekPlan(),
-    ])
-      .then(([weeklyRows, planRows]) => {
-        setRows(weeklyRows);
-        setPendingRows(planRows.filter((row) => row.layoutStatus !== 'published'));
-      })
+    void getWeeklyData(weekStartDate.format('YYYY-MM-DD'))
+      .then(setRows)
       .catch((reason: unknown) =>
         setError(reason instanceof Error ? reason.message : '未知错误'),
       )
@@ -303,8 +290,7 @@ export function WeeklyTab() {
         title: '发文时间',
         dataIndex: 'deliveryTime',
         render: (value: string) => dayjs(value).format('MM-DD HH:mm'),
-        sorter: (a, b) =>
-          dayjs(a.deliveryTime).valueOf() - dayjs(b.deliveryTime).valueOf(),
+        sorter: (a, b) => dayjs(a.deliveryTime).valueOf() - dayjs(b.deliveryTime).valueOf(),
         width: 105,
       },
       { title: '文章标题', dataIndex: 'articleTitle', width: 240 },
@@ -420,24 +406,6 @@ export function WeeklyTab() {
     [currentUser.username, load],
   );
 
-  const pendingColumns = useMemo<ColumnsType<NextWeekPlan>>(
-    () => [
-      { title: '账号', dataIndex: 'accountName', width: 140 },
-      {
-        title: '计划时间',
-        dataIndex: 'plannedTime',
-        render: (value: string) => dayjs(value).format('MM-DD HH:mm'),
-        width: 105,
-      },
-      { title: '标题', dataIndex: 'articleTitle', width: 240 },
-      { title: '投放课程', dataIndex: 'courseCode', width: 120 },
-      { title: '投放金额', dataIndex: 'plannedAmount', render: money, width: 120 },
-      { title: '排版状态', dataIndex: 'layoutStatus', render: (value: string) => <Tag>{value}</Tag>, width: 110 },
-      { title: '付款状态', dataIndex: 'paymentStatus', render: (value: string) => <Tag>{value}</Tag>, width: 110 },
-    ],
-    [],
-  );
-
   return (
     <div className="weekly-tab">
       <div className="weekly-toolbar">
@@ -475,9 +443,7 @@ export function WeeklyTab() {
         </Space>
         <Button onClick={() => exportWeeklyCsv(rows)}>导出 CSV</Button>
       </div>
-      {error ? (
-        <Alert showIcon type="error" message="加载失败" description={error} />
-      ) : null}
+      {error ? <Alert showIcon type="error" message="加载失败" description={error} /> : null}
 
       <section className="data-section">
         <div className="section-heading">
@@ -490,21 +456,6 @@ export function WeeklyTab() {
           loading={loading}
           rowKey="id"
           scroll={{ x: 2300 }}
-        />
-      </section>
-
-      <section className="data-section">
-        <div className="section-heading">
-          <h3>待排期</h3>
-          <span>{pendingRows.length} 条记录</span>
-        </div>
-        <Table
-          columns={pendingColumns}
-          dataSource={pendingRows}
-          loading={loading}
-          rowKey="id"
-          scroll={{ x: 1000 }}
-          pagination={{ pageSize: 5 }}
         />
       </section>
 
@@ -541,10 +492,10 @@ export function WeeklyTab() {
             <Input placeholder="https://" />
           </Form.Item>
           <Form.Item name="qrCode" label="二维码">
-            <Input />
+            <Input placeholder="图片链接或文件地址" />
           </Form.Item>
           <Form.Item name="screenshot" label="截图">
-            <Input />
+            <Input placeholder="图片链接或文件地址" />
           </Form.Item>
           <Form.Item name="spendAmount" label="投放金额">
             <InputNumber min={0} style={{ width: '100%' }} />
@@ -564,32 +515,26 @@ export function WeeklyTab() {
           <Form.Item name="coursePrice" label="课程单价">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
-          <Alert
-            showIcon
-            type="info"
-            message="加微成本、加微率、阅读成本、成交金额、转化率、ROI 为公式计算字段，系统自动计算，不支持手填。"
-          />
         </Form>
       </Modal>
 
       <Modal
-        title={`${versionTarget?.articleTitle ?? '投放'} 历史版本`}
+        title={`${versionTarget?.accountName ?? '记录'} 历史版本`}
         open={Boolean(versionTarget)}
-        onCancel={() => {
-          setVersionTarget(null);
-          setVersionRows([]);
-        }}
+        onCancel={() => setVersionTarget(null)}
+        width={860}
         footer={
-          <Button
-            disabled={versionRows.length === 0}
-            onClick={() =>
-              versionTarget && exportVersionCsv(versionRows, versionTarget.articleTitle)
-            }
-          >
-            下载 CSV
-          </Button>
+          <Space>
+            <Button onClick={() => setVersionTarget(null)}>关闭</Button>
+            <Button
+              type="primary"
+              disabled={versionRows.length === 0}
+              onClick={() => versionTarget && exportVersionCsv(versionRows, versionTarget.accountName)}
+            >
+              下载 CSV
+            </Button>
+          </Space>
         }
-        width={980}
       >
         <Table
           dataSource={versionRows}
@@ -599,9 +544,7 @@ export function WeeklyTab() {
             { title: '版本号', dataIndex: 'versionNo', width: 90 },
             { title: '上传人', dataIndex: 'uploadedBy', width: 110 },
             { title: '上传时间', dataIndex: 'uploadedAt', width: 170 },
-            { title: 'Sheet', dataIndex: 'sheetName', width: 120 },
-            { title: '日期时间', dataIndex: 'versionTime', width: 170 },
-            { title: '操作账号', dataIndex: 'operatorName', width: 120 },
+            { title: '版本时间', dataIndex: 'versionTime', width: 170 },
             { title: '修改前', dataIndex: 'before', ellipsis: true },
             { title: '修改后', dataIndex: 'after', ellipsis: true },
           ]}
