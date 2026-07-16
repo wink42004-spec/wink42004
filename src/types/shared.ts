@@ -23,6 +23,11 @@ export interface DeliveryMetric {
 
 export type DashboardTabKey = 'weekly' | 'nextWeek' | 'history';
 
+export interface DateRangeFilter {
+  startDate: string;
+  endDate: string;
+}
+
 export interface AuditFields {
   createdBy: string;
   createdAt: string;

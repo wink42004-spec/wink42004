@@ -7,6 +7,7 @@ import type {
   AuditLog,
   DashboardScreenData,
   DashboardTabKey,
+  DateRangeFilter,
   DeliveryMetric,
   ExcelSourceType,
   ExcelUploadResult,
@@ -345,9 +346,21 @@ export async function renameTeacher(
   return [...teachers];
 }
 
-export async function getWeeklyData(weekStartDate: string) {
+export async function getWeeklyData({ startDate, endDate }: DateRangeFilter) {
   await delay();
-  return getAllWeeklyViews().filter((row) => row.weekStartDate === weekStartDate);
+  const rangeStart = dayjs(startDate).startOf('day');
+  const rangeEnd = dayjs(endDate).endOf('day');
+  if (!rangeStart.isValid() || !rangeEnd.isValid() || rangeStart.isAfter(rangeEnd)) {
+    throw new Error('日期区间无效');
+  }
+  return getAllWeeklyViews().filter((row) => {
+    const deliveryTime = dayjs(row.deliveryTime);
+    return (
+      deliveryTime.isValid() &&
+      !deliveryTime.isBefore(rangeStart) &&
+      !deliveryTime.isAfter(rangeEnd)
+    );
+  });
 }
 
 export async function createWeeklyData(

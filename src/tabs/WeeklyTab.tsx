@@ -197,7 +197,10 @@ function getLinkSortValue(row: WeeklyDeliveryView) {
 export function WeeklyTab() {
   const { currentUser } = useAuthContext();
   const [form] = Form.useForm<WeeklyFormValues>();
-  const [weekStartDate, setWeekStartDate] = useState(getCurrentMonday());
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>(() => {
+    const weekStart = getCurrentMonday();
+    return [weekStart, weekStart.add(6, 'day')];
+  });
   const [rows, setRows] = useState<WeeklyDeliveryView[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -213,13 +216,16 @@ export function WeeklyTab() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    void getWeeklyData(weekStartDate.format('YYYY-MM-DD'))
+    void getWeeklyData({
+      startDate: dateRange[0].format('YYYY-MM-DD'),
+      endDate: dateRange[1].format('YYYY-MM-DD'),
+    })
       .then(setRows)
       .catch((reason: unknown) =>
         setError(reason instanceof Error ? reason.message : '未知错误'),
       )
       .finally(() => setLoading(false));
-  }, [weekStartDate]);
+  }, [dateRange]);
 
   useEffect(() => load(), [load]);
 
@@ -229,7 +235,7 @@ export function WeeklyTab() {
       accountName: '',
       paymentChannel: '',
       placement: '',
-      deliveryTime: weekStartDate.hour(10),
+      deliveryTime: dateRange[0].hour(10),
       articleTitle: '',
       courseCode: '',
       articleUrl: '',
@@ -254,8 +260,8 @@ export function WeeklyTab() {
   const submit = async () => {
     const values = await form.validateFields();
     const payload = {
-      period: editingRow?.period ?? weekStartDate.format('YYYY-MM-DD'),
-      weekStartDate: weekStartDate.format('YYYY-MM-DD'),
+      period: editingRow?.period ?? dateRange[0].format('YYYY-MM-DD'),
+      weekStartDate: dateRange[0].format('YYYY-MM-DD'),
       accountName: values.accountName,
       paymentChannel: values.paymentChannel,
       placement: values.placement,
@@ -275,16 +281,15 @@ export function WeeklyTab() {
       dealAmount: 0,
     };
     if (editingRow) {
-      const nextRow = await updateWeeklyData(
+      await updateWeeklyData(
         editingRow.id,
         payload as Partial<WeeklyDelivery>,
         currentUser.username,
       );
-      setRows((prev) => prev.map((row) => (row.id === nextRow.id ? nextRow : row)));
     } else {
-      const nextRow = await createWeeklyData(payload, currentUser.username);
-      setRows((prev) => [nextRow, ...prev]);
+      await createWeeklyData(payload, currentUser.username);
     }
+    load();
     message.success('已保存，公式字段已自动重算');
     setOpen(false);
   };
@@ -487,10 +492,17 @@ export function WeeklyTab() {
     <div className="weekly-tab">
       <div className="weekly-toolbar">
         <Space wrap>
-          <DatePicker
+          <DatePicker.RangePicker
             allowClear={false}
-            value={weekStartDate}
-            onChange={(value) => value && setWeekStartDate(value.startOf('day'))}
+            format="YYYY-MM-DD"
+            placeholder={['开始日期', '结束日期']}
+            value={dateRange}
+            onChange={(values) => {
+              if (values?.[0] && values[1]) {
+                setDateRange([values[0].startOf('day'), values[1].startOf('day')]);
+              }
+            }}
+            style={{ width: 260, maxWidth: '100%' }}
           />
           <Button type="primary" onClick={openCreate}>
             新增投放
