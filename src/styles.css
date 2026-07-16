@@ -291,7 +291,8 @@ body {
 }
 
 .weekly-toolbar,
-.next-week-toolbar {
+.next-week-toolbar,
+.history-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -683,6 +684,7 @@ body {
 
   .weekly-toolbar,
   .next-week-toolbar,
+  .history-toolbar,
   .screen-header {
     align-items: stretch;
     flex-direction: column;

@@ -373,6 +373,19 @@ function getDateRangeBounds({ startDate, endDate }: DateRangeFilter) {
   return [rangeStart, rangeEnd] as const;
 }
 
+function filterByDateRange<T>(
+  rows: T[],
+  dateRange: DateRangeFilter | undefined,
+  getDateValue: (row: T) => string,
+) {
+  if (!dateRange) return rows;
+  const [rangeStart, rangeEnd] = getDateRangeBounds(dateRange);
+  return rows.filter((row) => {
+    const date = dayjs(getDateValue(row));
+    return date.isValid() && !date.isBefore(rangeStart) && !date.isAfter(rangeEnd);
+  });
+}
+
 export async function getWeeklyData(dateRange: DateRangeFilter) {
   await delay();
   const [rangeStart, rangeEnd] = getDateRangeBounds(dateRange);
@@ -885,14 +898,32 @@ export async function uploadPlanCsv(text: string, operatorName: string) {
   writeAudit(operatorName, ACTION_UPLOAD, MODULE_NEXT, 'CSV', '-', `Imported ${rows.length} rows`);
 }
 
-export async function getAccountHistory(accountName: string) {
+export async function getAccountHistory(
+  accountName: string,
+  dateRange?: DateRangeFilter,
+) {
   await delay();
-  return getAllHistoryViews().filter((row) => row.accountName === accountName);
+  return filterByDateRange(
+    getAllHistoryViews().filter((row) => row.accountName === accountName),
+    dateRange,
+    (row) => row.deliveryTime,
+  );
 }
 
-export async function getHistorySummary(): Promise<HistorySummary> {
+export async function getHistorySummary(
+  dateRange?: DateRangeFilter,
+): Promise<HistorySummary> {
   await delay();
-  const rows = getAllHistoryViews();
+  const rows = filterByDateRange(
+    getAllHistoryViews(),
+    dateRange,
+    (row) => row.deliveryTime,
+  );
+  const filteredTitleRoiTrend = filterByDateRange(
+    titleRoiTrend,
+    dateRange,
+    (item) => item.date,
+  );
   const accountMap = new Map<string, WeeklyDeliveryView[]>();
   rows.forEach((row) => {
     accountMap.set(row.accountName, [...(accountMap.get(row.accountName) ?? []), row]);
@@ -938,7 +969,7 @@ export async function getHistorySummary(): Promise<HistorySummary> {
     accountPerformance,
     roiTrend:
       titleRoiTrend.length > 0
-        ? titleRoiTrend.map((item) => ({ date: item.date, value: item.roi }))
+        ? filteredTitleRoiTrend.map((item) => ({ date: item.date, value: item.roi }))
         : buildTrend(rows, 'roi'),
     leadCostTrend: buildLeadCostTrend(rows),
   };

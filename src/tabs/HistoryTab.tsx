@@ -1,7 +1,18 @@
-import { Alert, Button, Empty, Modal, Space, Spin, Statistic, Table, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  DatePicker,
+  Empty,
+  Modal,
+  Space,
+  Spin,
+  Statistic,
+  Table,
+  Typography,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import dayjs, { type Dayjs } from 'dayjs';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LineChart } from '../components/LineChart';
 import { getHistoryDetails, getHistorySummary } from '../services/historyService';
 import {
@@ -10,6 +21,7 @@ import {
 } from '../services/mockApi';
 import type {
   AccountPerformance,
+  DateRangeFilter,
   HistorySummary,
   VersionRecord,
   WeeklyDeliveryView,
@@ -50,6 +62,7 @@ interface HistoryTabProps {
 }
 
 export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [summary, setSummary] = useState<HistorySummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,23 +70,58 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
   const [details, setDetails] = useState<WeeklyDeliveryView[]>([]);
   const [versionOpen, setVersionOpen] = useState(false);
   const [versionRows, setVersionRows] = useState<VersionRecord[]>([]);
+  const detailRequestRef = useRef(0);
+  const dateFilter = useMemo<DateRangeFilter | undefined>(
+    () =>
+      dateRange
+        ? {
+            startDate: dateRange[0].format('YYYY-MM-DD'),
+            endDate: dateRange[1].format('YYYY-MM-DD'),
+          }
+        : undefined,
+    [dateRange],
+  );
 
-  const load = useCallback(() => {
+  useEffect(() => {
+    let active = true;
     setLoading(true);
     setError(null);
-    void getHistorySummary()
-      .then(setSummary)
-      .catch((reason: unknown) =>
-        setError(reason instanceof Error ? reason.message : '未知错误'),
-      )
-      .finally(() => setLoading(false));
-  }, []);
+    void getHistorySummary(dateFilter)
+      .then((nextSummary) => {
+        if (active) setSummary(nextSummary);
+      })
+      .catch((reason: unknown) => {
+        if (active) {
+          setSummary(null);
+          setError(reason instanceof Error ? reason.message : '未知错误');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [dataRevision, dateFilter]);
 
-  useEffect(() => load(), [dataRevision, load]);
+  const openDetails = useCallback(
+    async (accountName: string) => {
+      const requestId = detailRequestRef.current + 1;
+      detailRequestRef.current = requestId;
+      setDetailAccount(accountName);
+      setDetails([]);
+      const nextDetails = await getHistoryDetails(accountName, dateFilter);
+      if (detailRequestRef.current === requestId) {
+        setDetails(nextDetails);
+      }
+    },
+    [dateFilter],
+  );
 
-  const openDetails = useCallback(async (accountName: string) => {
-    setDetailAccount(accountName);
-    setDetails(await getHistoryDetails(accountName));
+  const closeDetails = useCallback(() => {
+    detailRequestRef.current += 1;
+    setDetailAccount(null);
+    setDetails([]);
   }, []);
 
   const openVersions = async () => {
@@ -172,7 +220,7 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
     [openDetails],
   );
 
-  if (loading) {
+  if (loading && !summary) {
     return (
       <div className="history-state">
         <Spin tip="加载历史汇总" />
@@ -180,7 +228,7 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
     );
   }
 
-  if (error) {
+  if (error && !summary) {
     return <Alert showIcon type="error" message="历史汇总加载失败" description={error} />;
   }
 
@@ -188,6 +236,36 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
 
   return (
     <div className="history-tab">
+      <div className="history-toolbar">
+        <Space wrap>
+          <Text strong>统计日期</Text>
+          <DatePicker.RangePicker
+            allowClear
+            format="YYYY-MM-DD"
+            placeholder={['开始日期', '结束日期']}
+            value={dateRange}
+            onChange={(values) => {
+              closeDetails();
+              setDateRange(
+                values?.[0] && values[1]
+                  ? [values[0].startOf('day'), values[1].startOf('day')]
+                  : null,
+              );
+            }}
+            style={{ width: 260, maxWidth: '100%' }}
+          />
+        </Space>
+        <Text type="secondary">
+          {loading
+            ? '正在更新统计数据...'
+            : dateRange
+              ? `${dateRange[0].format('YYYY-MM-DD')} 至 ${dateRange[1].format('YYYY-MM-DD')}`
+              : '全部历史数据'}
+        </Text>
+      </div>
+      {error ? (
+        <Alert showIcon type="error" message="历史汇总更新失败" description={error} />
+      ) : null}
       <div className="history-kpi-grid">
         <article className="history-kpi-card">
           <Statistic title="累计投放金额" value={summary.kpi.totalSpendAmount} precision={2} prefix="¥" />
@@ -213,6 +291,7 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
         <Table
           columns={columns}
           dataSource={summary.accountPerformance}
+          loading={loading}
           rowKey="id"
           scroll={{ x: 1500 }}
         />
@@ -238,7 +317,7 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
       <Modal
         title={`${detailAccount ?? '账号'}历史明细`}
         open={Boolean(detailAccount)}
-        onCancel={() => setDetailAccount(null)}
+        onCancel={closeDetails}
         footer={null}
         width={900}
       >
