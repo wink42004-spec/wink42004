@@ -468,6 +468,16 @@ body {
   background: #f8fbff !important;
 }
 
+.weekly-tab .ant-table-thead > tr > th,
+.weekly-tab .ant-table-tbody > tr > td {
+  text-align: center;
+}
+
+.weekly-tab .ant-table-column-sorters {
+  justify-content: center;
+  gap: 6px;
+}
+
 .screen-shell {
   min-height: 100vh;
   background:

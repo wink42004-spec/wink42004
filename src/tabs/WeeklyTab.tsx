@@ -177,6 +177,23 @@ function getTeacherDisplayName(row: WeeklyDeliveryView) {
   return row.teacherId ?? row.uploadedBy ?? row.createdBy ?? '-';
 }
 
+function compareText(left: unknown, right: unknown) {
+  return String(left ?? '').localeCompare(String(right ?? ''), 'zh-CN', {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
+
+function compareNumber(left: number | undefined, right: number | undefined) {
+  return Number(left ?? 0) - Number(right ?? 0);
+}
+
+function getLinkSortValue(row: WeeklyDeliveryView) {
+  return [row.articleUrl, row.previewUrl, row.qrCode, row.screenshot]
+    .filter(Boolean)
+    .join(' ');
+}
+
 export function WeeklyTab() {
   const { currentUser } = useAuthContext();
   const [form] = Form.useForm<WeeklyFormValues>();
@@ -188,6 +205,10 @@ export function WeeklyTab() {
   const [open, setOpen] = useState(false);
   const [versionTarget, setVersionTarget] = useState<WeeklyDeliveryView | null>(null);
   const [versionRows, setVersionRows] = useState<VersionRecord[]>([]);
+  const sequenceById = useMemo(
+    () => new Map(rows.map((row, index) => [row.id, index + 1])),
+    [rows],
+  );
 
   const load = useCallback(() => {
     setLoading(true);
@@ -275,21 +296,25 @@ export function WeeklyTab() {
 
   const columns = useMemo<ColumnsType<WeeklyDeliveryView>>(
     () => [
-      { title: '期次', dataIndex: 'period', width: 120 },
+      {
+        title: '期次',
+        dataIndex: 'period',
+        sorter: (a, b) => compareText(a.period, b.period),
+        width: 120,
+      },
       {
         title: '序号',
         key: 'sequence',
-        render: (_value, _record, index) => index + 1,
+        render: (_value, record) => sequenceById.get(record.id) ?? 0,
         sorter: (a, b) =>
-          rows.findIndex((row) => row.id === a.id) -
-          rows.findIndex((row) => row.id === b.id),
+          (sequenceById.get(a.id) ?? 0) - (sequenceById.get(b.id) ?? 0),
         fixed: 'left',
         width: 80,
       },
       {
         title: '账号',
         dataIndex: 'accountName',
-        sorter: (a, b) => a.accountName.localeCompare(b.accountName),
+        sorter: (a, b) => compareText(a.accountName, b.accountName),
         fixed: 'left',
         width: 140,
       },
@@ -297,11 +322,21 @@ export function WeeklyTab() {
         title: '讲师',
         dataIndex: 'teacherId',
         render: (_value: string | undefined, row) => getTeacherDisplayName(row),
-        sorter: (a, b) => getTeacherDisplayName(a).localeCompare(getTeacherDisplayName(b)),
+        sorter: (a, b) => compareText(getTeacherDisplayName(a), getTeacherDisplayName(b)),
         width: 110,
       },
-      { title: '付款渠道', dataIndex: 'paymentChannel', width: 110 },
-      { title: '投放位置', dataIndex: 'placement', width: 100 },
+      {
+        title: '付款渠道',
+        dataIndex: 'paymentChannel',
+        sorter: (a, b) => compareText(a.paymentChannel, b.paymentChannel),
+        width: 110,
+      },
+      {
+        title: '投放位置',
+        dataIndex: 'placement',
+        sorter: (a, b) => compareText(a.placement, b.placement),
+        width: 100,
+      },
       {
         title: '发文时间',
         dataIndex: 'deliveryTime',
@@ -309,11 +344,16 @@ export function WeeklyTab() {
         sorter: (a, b) => dayjs(a.deliveryTime).valueOf() - dayjs(b.deliveryTime).valueOf(),
         width: 105,
       },
-      { title: '文章标题', dataIndex: 'articleTitle', width: 240 },
+      {
+        title: '文章标题',
+        dataIndex: 'articleTitle',
+        sorter: (a, b) => compareText(a.articleTitle, b.articleTitle),
+        width: 240,
+      },
       {
         title: '投放课程',
         dataIndex: 'courseCode',
-        sorter: (a, b) => (a.courseCode ?? '').localeCompare(b.courseCode ?? ''),
+        sorter: (a, b) => compareText(a.courseCode, b.courseCode),
         width: 120,
       },
       {
@@ -328,28 +368,35 @@ export function WeeklyTab() {
             {!row.articleUrl && !row.previewUrl && !row.qrCode && !row.screenshot ? '-' : null}
           </Space>
         ),
+        sorter: (a, b) => compareText(getLinkSortValue(a), getLinkSortValue(b)),
         width: 140,
       },
       {
         title: '投放金额',
         dataIndex: 'spendAmount',
         render: money,
-        sorter: (a, b) => a.spendAmount - b.spendAmount,
+        sorter: (a, b) => compareNumber(a.spendAmount, b.spendAmount),
         width: 120,
       },
       {
         title: '广告阅读量',
         dataIndex: 'adReadCount',
         render: (value?: number) => Number(value ?? 0).toLocaleString('zh-CN'),
-        sorter: (a, b) => Number(a.adReadCount ?? 0) - Number(b.adReadCount ?? 0),
+        sorter: (a, b) => compareNumber(a.adReadCount, b.adReadCount),
         width: 115,
       },
-      { title: '加微量', dataIndex: 'wechatAdds', width: 95 },
+      {
+        title: '加微量',
+        dataIndex: 'wechatAdds',
+        sorter: (a, b) => compareNumber(a.wechatAdds, b.wechatAdds),
+        width: 95,
+      },
       {
         title: formulaTitle('加微成本'),
         dataIndex: 'wechatAddCost',
         className: 'formula-cell',
         render: money,
+        sorter: (a, b) => compareNumber(a.wechatAddCost, b.wechatAddCost),
         width: 110,
       },
       {
@@ -357,6 +404,7 @@ export function WeeklyTab() {
         dataIndex: 'wechatAddRate',
         className: 'formula-cell',
         render: percent,
+        sorter: (a, b) => compareNumber(a.wechatAddRate, b.wechatAddRate),
         width: 95,
       },
       {
@@ -364,15 +412,28 @@ export function WeeklyTab() {
         dataIndex: 'readCost',
         className: 'formula-cell',
         render: money,
+        sorter: (a, b) => compareNumber(a.readCost, b.readCost),
         width: 110,
       },
-      { title: '成交量', dataIndex: 'dealCount', width: 95 },
-      { title: '课程单价', dataIndex: 'coursePrice', render: money, width: 105 },
+      {
+        title: '成交量',
+        dataIndex: 'dealCount',
+        sorter: (a, b) => compareNumber(a.dealCount, b.dealCount),
+        width: 95,
+      },
+      {
+        title: '课程单价',
+        dataIndex: 'coursePrice',
+        render: money,
+        sorter: (a, b) => compareNumber(a.coursePrice, b.coursePrice),
+        width: 105,
+      },
       {
         title: formulaTitle('成交金额'),
         dataIndex: 'dealAmount',
         className: 'formula-cell',
         render: money,
+        sorter: (a, b) => compareNumber(a.dealAmount, b.dealAmount),
         width: 120,
       },
       {
@@ -380,6 +441,7 @@ export function WeeklyTab() {
         dataIndex: 'conversionRate',
         className: 'formula-cell',
         render: percent,
+        sorter: (a, b) => compareNumber(a.conversionRate, b.conversionRate),
         width: 95,
       },
       {
@@ -389,7 +451,7 @@ export function WeeklyTab() {
         render: (roi: number) => (
           <span className={`roi-value ${roiClass(roi)}`}>{roi.toFixed(2)}</span>
         ),
-        sorter: (a, b) => a.roi - b.roi,
+        sorter: (a, b) => compareNumber(a.roi, b.roi),
         width: 90,
       },
       {
@@ -418,7 +480,7 @@ export function WeeklyTab() {
         ),
       },
     ],
-    [currentUser.username, load, rows],
+    [currentUser.username, load, sequenceById],
   );
 
   return (
