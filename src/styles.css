@@ -473,6 +473,15 @@ body {
   text-align: center;
 }
 
+.weekly-tab .ant-table-thead > tr > th {
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.weekly-tab .ant-table-column-title {
+  white-space: nowrap;
+}
+
 .weekly-tab .ant-table-column-sorters {
   justify-content: center;
   gap: 6px;
