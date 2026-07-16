@@ -61,6 +61,15 @@ const layoutOptions: Array<{ label: string; value: LayoutStatus }> = [
   { label: '已发布', value: 'published' },
 ];
 
+function buildStatusOrder<T extends string>(
+  options: ReadonlyArray<{ value: T }>,
+): Record<T, number> {
+  return options.reduce(
+    (order, option, index) => ({ ...order, [option.value]: index }),
+    {} as Record<T, number>,
+  );
+}
+
 const layoutStatusTheme: Record<LayoutStatus, { label: string; color: string; bg: string }> = {
   pending: { label: '未排版', color: '#475569', bg: '#f1f5f9' },
   processing: { label: '排版中', color: '#0369a1', bg: '#e0f2fe' },
@@ -73,6 +82,9 @@ const paymentStatusTheme: Record<PaymentStatus, { label: string; color: string; 
   partial: { label: '部分付款', color: '#b45309', bg: '#fef3c7' },
   paid: { label: '已付款', color: '#15803d', bg: '#dcfce7' },
 };
+
+const layoutStatusOrder = buildStatusOrder(layoutOptions);
+const paymentStatusOrder = buildStatusOrder(paymentOptions);
 
 function StatusTag({
   value,
@@ -203,7 +215,12 @@ export function NextWeekTab() {
         sorter: (a, b) => a.articleTitle.localeCompare(b.articleTitle),
         width: 260,
       },
-      { title: '投放课程', dataIndex: 'courseCode', width: 120 },
+      {
+        title: '投放课程',
+        dataIndex: 'courseCode',
+        sorter: (a, b) => (a.courseCode ?? '').localeCompare(b.courseCode ?? ''),
+        width: 120,
+      },
       {
         title: '投放金额',
         dataIndex: 'plannedAmount',
@@ -235,6 +252,8 @@ export function NextWeekTab() {
             }
           />
         ),
+        sorter: (a, b) =>
+          layoutStatusOrder[a.layoutStatus] - layoutStatusOrder[b.layoutStatus],
         width: 150,
       },
       {
@@ -261,6 +280,8 @@ export function NextWeekTab() {
             }
           />
         ),
+        sorter: (a, b) =>
+          paymentStatusOrder[a.paymentStatus] - paymentStatusOrder[b.paymentStatus],
         width: 150,
       },
       {

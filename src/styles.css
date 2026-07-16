@@ -469,22 +469,32 @@ body {
 }
 
 .weekly-tab .ant-table-thead > tr > th,
-.weekly-tab .ant-table-tbody > tr > td {
+.weekly-tab .ant-table-tbody > tr > td,
+.next-week-tab .ant-table-thead > tr > th,
+.next-week-tab .ant-table-tbody > tr > td {
   text-align: center;
 }
 
-.weekly-tab .ant-table-thead > tr > th {
+.weekly-tab .ant-table-thead > tr > th,
+.next-week-tab .ant-table-thead > tr > th {
   padding-inline: 12px;
   white-space: nowrap;
 }
 
-.weekly-tab .ant-table-column-title {
+.weekly-tab .ant-table-column-title,
+.next-week-tab .ant-table-column-title {
   white-space: nowrap;
 }
 
-.weekly-tab .ant-table-column-sorters {
+.weekly-tab .ant-table-column-sorters,
+.next-week-tab .ant-table-column-sorters {
   justify-content: center;
   gap: 6px;
+}
+
+.next-week-tab .ant-select-selection-item {
+  justify-content: center;
+  text-align: center;
 }
 
 .screen-shell {
