@@ -13,7 +13,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
         token: {
           colorPrimary: '#06b6d4',
           borderRadius: 8,
-          colorBgLayout: '#0b1726',
+          colorBgLayout: '#f4f7fb',
           colorSuccess: '#16a34a',
           colorWarning: '#ca8a04',
           colorError: '#dc2626',
@@ -23,7 +23,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
         components: {
           Layout: {
             headerBg: '#050b16',
-            bodyBg: '#0b1726',
+            bodyBg: '#f4f7fb',
           },
           Button: {
             controlHeight: 34,

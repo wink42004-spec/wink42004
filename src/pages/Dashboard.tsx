@@ -108,14 +108,14 @@ export function Dashboard({
     <Layout className="app-shell">
       <Header className="dashboard-header">
         <div className="dashboard-brand">
-          <div className="brand-mark">π</div>
+          <div className="brand-mark">AD</div>
           <div className="dashboard-heading">
-            <span className="dashboard-kicker">RuView Inspired Console</span>
+            <span className="dashboard-kicker">Campaign Operations</span>
             <Typography.Title className="dashboard-title" level={1}>
               公众号投放监控共享看板
             </Typography.Title>
             <span className="dashboard-subtitle">
-              Shared Campaign Intelligence Console
+              Shared campaign intelligence workspace
             </span>
           </div>
         </div>
@@ -139,7 +139,7 @@ export function Dashboard({
             <Tag className="overview-tag">
               {getModeLabel(currentUser.status, currentUser.isAdmin)}
             </Tag>
-            <h2 className="overview-title">Campaign Signal Command Center</h2>
+            <h2 className="overview-title">投放数据指挥台</h2>
             <p className="overview-copy">
               {currentUser.status === 'guest'
                 ? '当前为访客模式，展示模拟数据。你可以浏览完整看板动线，但不会看到公司真实数据。'
@@ -148,15 +148,15 @@ export function Dashboard({
           </div>
           <div className="overview-command-grid" aria-label="console status">
             <article>
-              <span>Data Mode</span>
+              <span>数据模式</span>
               <strong>{currentUser.status === 'guest' ? 'Mock' : 'Shared'}</strong>
             </article>
             <article>
-              <span>Operator</span>
+              <span>当前账号</span>
               <strong>{currentUser.username}</strong>
             </article>
             <article>
-              <span>Review</span>
+              <span>权限状态</span>
               <strong>{currentUser.isAdmin ? 'Admin' : currentUser.status}</strong>
             </article>
           </div>
