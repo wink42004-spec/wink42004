@@ -14,6 +14,7 @@ import type {
   HistorySummary,
   NextWeekPlan,
   PaymentStatus,
+  PeriodUpdateResult,
   StandardUploadPreview,
   Teacher,
   UploadSourceType,
@@ -27,6 +28,7 @@ const ACTION_UPDATE = '\u4fee\u6539';
 const ACTION_UPLOAD = '\u4e0a\u4f20';
 const ACTION_DELETE = '\u5220\u9664';
 const ACTION_RECALC = '\u91cd\u7b97\u516c\u5f0f';
+const ACTION_PERIOD_UPDATE = '\u671f\u6b21\u66f4\u65b0';
 const MODULE_WEEKLY = '\u672c\u671f\u6295\u653e';
 const MODULE_NEXT = '\u4e0b\u671f\u6295\u653e';
 const MODULE_HISTORY = '\u5386\u53f2\u6c47\u603b';
@@ -166,6 +168,8 @@ const realCompanyPlans: NextWeekPlan[] = [
 
 let guestWeeklyRows = mockGuestWeeklyRows.map(recalculateWeeklyRow);
 let realWeeklyRows = realCompanyWeeklyRows.map(recalculateWeeklyRow);
+let guestHistoryRows: WeeklyDelivery[] = [];
+let realHistoryRows: WeeklyDelivery[] = [];
 let guestPlans = [...mockGuestPlans];
 let realPlans = [...realCompanyPlans];
 let versionRecords: VersionRecord[] = [];
@@ -211,6 +215,15 @@ function weeklyStore() {
 function setWeeklyStore(rows: WeeklyDelivery[]) {
   if (canReadRealData()) realWeeklyRows = rows;
   else guestWeeklyRows = rows;
+}
+
+function historyStore() {
+  return canReadRealData() ? realHistoryRows : guestHistoryRows;
+}
+
+function setHistoryStore(rows: WeeklyDelivery[]) {
+  if (canReadRealData()) realHistoryRows = rows;
+  else guestHistoryRows = rows;
 }
 
 function planStore() {
@@ -319,6 +332,11 @@ function getAllWeeklyViews() {
   return weeklyStore().map(toWeeklyView);
 }
 
+function getAllHistoryViews() {
+  if (!canReadAnyData()) return [];
+  return [...historyStore(), ...weeklyStore()].map(toWeeklyView);
+}
+
 export async function getTeachers() {
   await delay(120);
   return [...teachers];
@@ -346,13 +364,18 @@ export async function renameTeacher(
   return [...teachers];
 }
 
-export async function getWeeklyData({ startDate, endDate }: DateRangeFilter) {
-  await delay();
+function getDateRangeBounds({ startDate, endDate }: DateRangeFilter) {
   const rangeStart = dayjs(startDate).startOf('day');
   const rangeEnd = dayjs(endDate).endOf('day');
   if (!rangeStart.isValid() || !rangeEnd.isValid() || rangeStart.isAfter(rangeEnd)) {
     throw new Error('日期区间无效');
   }
+  return [rangeStart, rangeEnd] as const;
+}
+
+export async function getWeeklyData(dateRange: DateRangeFilter) {
+  await delay();
+  const [rangeStart, rangeEnd] = getDateRangeBounds(dateRange);
   return getAllWeeklyViews().filter((row) => {
     const deliveryTime = dayjs(row.deliveryTime);
     return (
@@ -666,10 +689,133 @@ export async function uploadDataFile(
   };
 }
 
-export async function getNextWeekPlan() {
+export async function getNextWeekPlan(dateRange: DateRangeFilter) {
   await delay();
   if (!canReadAnyData()) return [];
-  return [...planStore()].sort((a, b) => a.sortOrder - b.sortOrder);
+  const [rangeStart, rangeEnd] = getDateRangeBounds(dateRange);
+  return planStore()
+    .filter((row) => {
+      const plannedTime = dayjs(row.plannedTime);
+      return (
+        plannedTime.isValid() &&
+        !plannedTime.isBefore(rangeStart) &&
+        !plannedTime.isAfter(rangeEnd)
+      );
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export async function updatePeriod(operatorName: string): Promise<PeriodUpdateResult> {
+  await delay();
+  if (!canReadAnyData()) throw new Error('No permission to update the period');
+
+  const updatedAt = timestamp();
+  const currentRows = weeklyStore();
+  const nextRows = planStore();
+  const invalidPlan = nextRows.find((plan) => !dayjs(plan.plannedTime).isValid());
+  if (invalidPlan) {
+    throw new Error(`下期投放“${invalidPlan.accountName}”的计划日期无效，请先修正`);
+  }
+  const archivedRows = currentRows.map((row) => ({
+    ...row,
+    updatedBy: operatorName,
+    updatedAt,
+  }));
+  const promotedRows = nextRows.map((plan, index): WeeklyDelivery => {
+    const plannedDay = dayjs(plan.plannedTime);
+    const weekDay = plannedDay.day();
+    const weekStartDate = plannedDay
+      .subtract(weekDay === 0 ? 6 : weekDay - 1, 'day')
+      .format('YYYY-MM-DD');
+
+    return recalculateWeeklyRow({
+      id: `period-${plan.id}-${index}`,
+      teacherId: plan.teacherId,
+      period: plan.period ?? plannedDay.format('YYYY-MM-DD'),
+      weekStartDate,
+      accountName: plan.accountName,
+      deliveryTime: plan.plannedTime,
+      articleTitle: plan.articleTitle,
+      courseCode: plan.courseCode,
+      articleUrl: plan.articleUrl,
+      spendAmount: plan.plannedAmount,
+      readCount: 0,
+      adReadCount: 0,
+      wechatAdds: 0,
+      dealCount: 0,
+      coursePrice: 0,
+      dealAmount: 0,
+      createdBy: plan.createdBy,
+      createdAt: plan.createdAt,
+      updatedBy: operatorName,
+      updatedAt,
+      uploadedBy: plan.uploadedBy,
+      uploadedAt: plan.uploadedAt,
+      raw: { sourcePlanId: plan.id },
+    });
+  });
+
+  setHistoryStore([...historyStore(), ...archivedRows]);
+  setWeeklyStore(promotedRows);
+  setPlanStore([]);
+
+  const versionNo = ++uploadVersionNo;
+  writeVersion(
+    MODULE_HISTORY,
+    `period-update-${versionNo}`,
+    ACTION_PERIOD_UPDATE,
+    operatorName,
+    {
+      current: currentRows.map(({ id, period, accountName }) => ({
+        id,
+        period,
+        accountName,
+      })),
+      next: nextRows.map(({ id, period, accountName }) => ({
+        id,
+        period,
+        accountName,
+      })),
+    },
+    {
+      archived: archivedRows.map(({ id, period, accountName }) => ({
+        id,
+        period,
+        accountName,
+      })),
+      promoted: promotedRows.map(({ id, period, accountName }) => ({
+        id,
+        period,
+        accountName,
+      })),
+    },
+    {
+      uploadedBy: operatorName,
+      uploadedAt: updatedAt,
+      sheetName: ACTION_PERIOD_UPDATE,
+      versionNo,
+    },
+  );
+  writeAudit(
+    operatorName,
+    ACTION_PERIOD_UPDATE,
+    MODULE_WEEKLY,
+    ACTION_PERIOD_UPDATE,
+    { currentCount: currentRows.length, nextCount: nextRows.length },
+    { archivedCount: archivedRows.length, promotedCount: promotedRows.length },
+  );
+
+  const promotedDates = promotedRows
+    .map((row) => dayjs(row.deliveryTime).format('YYYY-MM-DD'))
+    .filter((value) => value !== 'Invalid Date')
+    .sort();
+
+  return {
+    archivedCount: archivedRows.length,
+    promotedCount: promotedRows.length,
+    promotedStartDate: promotedDates[0],
+    promotedEndDate: promotedDates[promotedDates.length - 1],
+  };
 }
 
 export async function createPlan(
@@ -741,12 +887,12 @@ export async function uploadPlanCsv(text: string, operatorName: string) {
 
 export async function getAccountHistory(accountName: string) {
   await delay();
-  return getAllWeeklyViews().filter((row) => row.accountName === accountName);
+  return getAllHistoryViews().filter((row) => row.accountName === accountName);
 }
 
 export async function getHistorySummary(): Promise<HistorySummary> {
   await delay();
-  const rows = getAllWeeklyViews();
+  const rows = getAllHistoryViews();
   const accountMap = new Map<string, WeeklyDeliveryView[]>();
   rows.forEach((row) => {
     accountMap.set(row.accountName, [...(accountMap.get(row.accountName) ?? []), row]);

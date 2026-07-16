@@ -45,7 +45,11 @@ function downloadCsv(filename: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
-export function HistoryTab() {
+interface HistoryTabProps {
+  dataRevision?: number;
+}
+
+export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
   const [summary, setSummary] = useState<HistorySummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +69,7 @@ export function HistoryTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => load(), [dataRevision, load]);
 
   const openDetails = useCallback(async (accountName: string) => {
     setDetailAccount(accountName);

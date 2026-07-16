@@ -33,6 +33,7 @@ import type {
   PaymentStatus,
   WeeklyDeliveryView,
 } from '../types/shared';
+import { getCurrentWeekRange } from '../utils/dateRange';
 
 interface PlanFormValues {
   accountName: string;
@@ -116,9 +117,14 @@ function money(value: number) {
   })}`;
 }
 
-export function NextWeekTab() {
+interface NextWeekTabProps {
+  dataRevision?: number;
+}
+
+export function NextWeekTab({ dataRevision = 0 }: NextWeekTabProps) {
   const { currentUser } = useAuthContext();
   const [form] = Form.useForm<PlanFormValues>();
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>(getCurrentWeekRange);
   const [rows, setRows] = useState<NextWeekPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,15 +136,18 @@ export function NextWeekTab() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    void getNextWeekPlan()
+    void getNextWeekPlan({
+      startDate: dateRange[0].format('YYYY-MM-DD'),
+      endDate: dateRange[1].format('YYYY-MM-DD'),
+    })
       .then(setRows)
       .catch((reason: unknown) =>
         setError(reason instanceof Error ? reason.message : '未知错误'),
       )
       .finally(() => setLoading(false));
-  }, []);
+  }, [dateRange]);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => load(), [dataRevision, load]);
 
   const openCreate = () => {
     setEditingRow(null);
@@ -174,12 +183,11 @@ export function NextWeekTab() {
       paymentStatus: values.paymentStatus,
     };
     if (editingRow) {
-      const nextRow = await updatePlan(editingRow.id, payload, currentUser.username);
-      setRows((prev) => prev.map((row) => (row.id === nextRow.id ? nextRow : row)));
+      await updatePlan(editingRow.id, payload, currentUser.username);
     } else {
-      const nextRow = await createPlan(payload, currentUser.username);
-      setRows((prev) => [...prev, nextRow]);
+      await createPlan(payload, currentUser.username);
     }
+    load();
     message.success('已保存');
     setOpen(false);
   };
@@ -312,6 +320,18 @@ export function NextWeekTab() {
     <div className="next-week-tab">
       <div className="next-week-toolbar">
         <Space wrap>
+          <DatePicker.RangePicker
+            allowClear={false}
+            format="YYYY-MM-DD"
+            placeholder={['开始日期', '结束日期']}
+            value={dateRange}
+            onChange={(values) => {
+              if (values?.[0] && values[1]) {
+                setDateRange([values[0].startOf('day'), values[1].startOf('day')]);
+              }
+            }}
+            style={{ width: 260, maxWidth: '100%' }}
+          />
           <Button type="primary" onClick={openCreate}>
             新增排期
           </Button>

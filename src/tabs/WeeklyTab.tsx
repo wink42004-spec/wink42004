@@ -23,6 +23,7 @@ import {
   deleteWeeklyData,
   getVersionRecords,
   getWeeklyData,
+  updatePeriod,
   updateWeeklyData,
   uploadWeeklyCsv,
 } from '../services/weeklyService';
@@ -31,6 +32,7 @@ import type {
   WeeklyDelivery,
   WeeklyDeliveryView,
 } from '../types/shared';
+import { getCurrentWeekRange } from '../utils/dateRange';
 
 interface WeeklyFormValues {
   accountName: string;
@@ -52,12 +54,6 @@ interface WeeklyFormValues {
 
 const weeklyUploadTemplate = uploadTemplates.weekly;
 const templateBaseUrl = 'templates/';
-
-function getCurrentMonday() {
-  const today = dayjs();
-  const day = today.day();
-  return today.subtract(day === 0 ? 6 : day - 1, 'day').startOf('day');
-}
 
 function money(value?: number) {
   return `¥${Number(value ?? 0).toLocaleString('zh-CN', {
@@ -194,13 +190,15 @@ function getLinkSortValue(row: WeeklyDeliveryView) {
     .join(' ');
 }
 
-export function WeeklyTab() {
+interface WeeklyTabProps {
+  dataRevision?: number;
+  onDataChanged?: () => void;
+}
+
+export function WeeklyTab({ dataRevision = 0, onDataChanged }: WeeklyTabProps) {
   const { currentUser } = useAuthContext();
   const [form] = Form.useForm<WeeklyFormValues>();
-  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>(() => {
-    const weekStart = getCurrentMonday();
-    return [weekStart, weekStart.add(6, 'day')];
-  });
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>(getCurrentWeekRange);
   const [rows, setRows] = useState<WeeklyDeliveryView[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -208,6 +206,7 @@ export function WeeklyTab() {
   const [open, setOpen] = useState(false);
   const [versionTarget, setVersionTarget] = useState<WeeklyDeliveryView | null>(null);
   const [versionRows, setVersionRows] = useState<VersionRecord[]>([]);
+  const [periodUpdating, setPeriodUpdating] = useState(false);
   const sequenceById = useMemo(
     () => new Map(rows.map((row, index) => [row.id, index + 1])),
     [rows],
@@ -227,7 +226,7 @@ export function WeeklyTab() {
       .finally(() => setLoading(false));
   }, [dateRange]);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => load(), [dataRevision, load]);
 
   const openCreate = () => {
     setEditingRow(null);
@@ -297,6 +296,29 @@ export function WeeklyTab() {
   const openVersions = async (row: WeeklyDeliveryView) => {
     setVersionTarget(row);
     setVersionRows(await getVersionRecords(row.id));
+  };
+
+  const handlePeriodUpdate = async () => {
+    setPeriodUpdating(true);
+    try {
+      const result = await updatePeriod(currentUser.username);
+      onDataChanged?.();
+      if (result.promotedStartDate && result.promotedEndDate) {
+        setDateRange([
+          dayjs(result.promotedStartDate).startOf('day'),
+          dayjs(result.promotedEndDate).startOf('day'),
+        ]);
+      } else if (!onDataChanged) {
+        load();
+      }
+      message.success(
+        `期次更新完成：已归档 ${result.archivedCount} 条，下期转入本期 ${result.promotedCount} 条`,
+      );
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '期次更新失败');
+    } finally {
+      setPeriodUpdating(false);
+    }
   };
 
   const columns = useMemo<ColumnsType<WeeklyDeliveryView>>(
@@ -507,6 +529,18 @@ export function WeeklyTab() {
           <Button type="primary" onClick={openCreate}>
             新增投放
           </Button>
+          <Popconfirm
+            title="确认要更新批次吗？"
+            description="更新后，本期全部数据会放入历史汇总，下期全部数据会切换到本期。"
+            okText="确认更新"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+            onConfirm={handlePeriodUpdate}
+          >
+            <Button danger loading={periodUpdating}>
+              期次更新
+            </Button>
+          </Popconfirm>
           <Button
             href={`${templateBaseUrl}${weeklyUploadTemplate.fileName}`}
             download={weeklyUploadTemplate.fileName}

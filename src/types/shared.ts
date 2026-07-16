@@ -28,6 +28,13 @@ export interface DateRangeFilter {
   endDate: string;
 }
 
+export interface PeriodUpdateResult {
+  archivedCount: number;
+  promotedCount: number;
+  promotedStartDate?: string;
+  promotedEndDate?: string;
+}
+
 export interface AuditFields {
   createdBy: string;
   createdAt: string;

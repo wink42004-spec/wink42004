@@ -3,6 +3,7 @@ export {
   deleteWeeklyData,
   getVersionRecords,
   getWeeklyData,
+  updatePeriod,
   updateWeeklyData,
   uploadWeeklyCsv,
 } from './mockApi';

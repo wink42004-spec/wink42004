@@ -5,14 +5,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { getAuditLogs } from '../services/mockApi';
 import type { AuditLog } from '../types/shared';
 
-export function AuditLogTab() {
+interface AuditLogTabProps {
+  dataRevision?: number;
+}
+
+export function AuditLogTab({ dataRevision = 0 }: AuditLogTabProps) {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [actionType, setActionType] = useState<string>();
   const [date, setDate] = useState<Dayjs | null>(null);
 
   useEffect(() => {
     void getAuditLogs().then(setLogs);
-  }, []);
+  }, [dataRevision]);
 
   const filteredLogs = useMemo(
     () =>
@@ -42,12 +46,18 @@ export function AuditLogTab() {
           placeholder="操作类型"
           value={actionType}
           onChange={setActionType}
-          options={['新增', '修改', '上传', '删除', '自动更新阅读量', '重算公式'].map(
-            (value) => ({
-              label: value,
-              value,
-            }),
-          )}
+          options={[
+            '新增',
+            '修改',
+            '上传',
+            '删除',
+            '期次更新',
+            '自动更新阅读量',
+            '重算公式',
+          ].map((value) => ({
+            label: value,
+            value,
+          }))}
           style={{ width: 180 }}
         />
         <DatePicker value={date} onChange={setDate} placeholder="操作日期" />

@@ -12,7 +12,7 @@ import {
   message,
 } from 'antd';
 import type { UploadProps } from 'antd';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { PermissionNotice } from '../components/PermissionNotice';
 import { UserStatusBadge } from '../components/UserStatusBadge';
 import { standardTemplateList } from '../config/uploadTemplates';
@@ -56,6 +56,10 @@ export function Dashboard({
   const [uploadOpen, setUploadOpen] = useState(false);
   const [preview, setPreview] = useState<StandardUploadPreview | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [dataRevision, setDataRevision] = useState(0);
+  const notifyDataChanged = useCallback(() => {
+    setDataRevision((revision) => revision + 1);
+  }, []);
 
   const canViewData =
     currentUser.status === 'guest' ||
@@ -88,6 +92,7 @@ export function Dashboard({
     setUploading(true);
     try {
       const result = await commitStandardExcelUpload(preview, currentUser.username);
+      notifyDataChanged();
       message.success(`导入成功：${result.rowCount} 条，版本 V${result.versionNo}`);
       setPreview(null);
       setUploadOpen(false);
@@ -170,10 +175,31 @@ export function Dashboard({
             <Tabs
               defaultActiveKey="weekly"
               items={[
-                { key: 'weekly', label: '本期投放', children: <WeeklyTab /> },
-                { key: 'nextWeek', label: '下期投放', children: <NextWeekTab /> },
-                { key: 'history', label: '历史汇总', children: <HistoryTab /> },
-                { key: 'audit', label: '修改记录', children: <AuditLogTab /> },
+                {
+                  key: 'weekly',
+                  label: '本期投放',
+                  children: (
+                    <WeeklyTab
+                      dataRevision={dataRevision}
+                      onDataChanged={notifyDataChanged}
+                    />
+                  ),
+                },
+                {
+                  key: 'nextWeek',
+                  label: '下期投放',
+                  children: <NextWeekTab dataRevision={dataRevision} />,
+                },
+                {
+                  key: 'history',
+                  label: '历史汇总',
+                  children: <HistoryTab dataRevision={dataRevision} />,
+                },
+                {
+                  key: 'audit',
+                  label: '修改记录',
+                  children: <AuditLogTab dataRevision={dataRevision} />,
+                },
               ]}
             />
           </section>
