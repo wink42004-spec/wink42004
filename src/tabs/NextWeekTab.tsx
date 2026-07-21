@@ -145,9 +145,16 @@ export function NextWeekTab({ dataRevision = 0 }: NextWeekTabProps) {
         setError(reason instanceof Error ? reason.message : '未知错误'),
       )
       .finally(() => setLoading(false));
-  }, [dateRange]);
+  }, [currentUser.id, dateRange]);
 
   useEffect(() => load(), [dataRevision, load]);
+
+  useEffect(() => {
+    setOpen(false);
+    setEditingRow(null);
+    setHistoryAccount(null);
+    setHistoryRows([]);
+  }, [currentUser.id]);
 
   const openCreate = () => {
     setEditingRow(null);

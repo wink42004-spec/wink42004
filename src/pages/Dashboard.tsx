@@ -147,7 +147,7 @@ export function Dashboard({
             <h2 className="overview-title">投放数据指挥台</h2>
             <p className="overview-copy">
               {currentUser.status === 'guest'
-                ? '当前为访客模式，展示模拟数据。你可以浏览完整看板动线，但不会看到公司真实数据。'
+                ? '当前为访客模式，仅展示模拟数据。你可以浏览完整的模拟数据看板动线，不会接触或看到任何公司真实数据。'
                 : `当前账号：${currentUser.username}。系统会按标准模板识别本期投放和下期投放，并生成预览后再导入。`}
             </p>
           </div>
@@ -173,6 +173,7 @@ export function Dashboard({
         ) : (
           <section className="tabs-panel">
             <Tabs
+              key={currentUser.id}
               defaultActiveKey="weekly"
               items={[
                 {

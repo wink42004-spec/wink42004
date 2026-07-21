@@ -42,7 +42,7 @@ const auditBase = {
   updatedAt: now,
 };
 
-let teachers: Teacher[] = [
+const defaultTeachers: Teacher[] = [
   { id: 'teacher-zhang', name: 'Zhang' },
   { id: 'teacher-li', name: 'Li' },
   { id: 'teacher-wang', name: 'Wang' },
@@ -172,19 +172,39 @@ let guestHistoryRows: WeeklyDelivery[] = [];
 let realHistoryRows: WeeklyDelivery[] = [];
 let guestPlans = [...mockGuestPlans];
 let realPlans = [...realCompanyPlans];
-let versionRecords: VersionRecord[] = [];
-let uploadVersionNo = 0;
-let accountLevelRules = new Map<string, string>();
-let titleRoiTrend: Array<{ title: string; date: string; roi: number }> = [];
+let guestTeachers = defaultTeachers.map((teacher) => ({ ...teacher }));
+let realTeachers = defaultTeachers.map((teacher) => ({ ...teacher }));
+let guestVersionRecords: VersionRecord[] = [];
+let realVersionRecords: VersionRecord[] = [];
+let guestUploadVersionNo = 0;
+let realUploadVersionNo = 0;
+let guestArchivePeriodNo = 0;
+let realArchivePeriodNo = 0;
+let guestAccountLevelRules = new Map<string, string>();
+let realAccountLevelRules = new Map<string, string>();
+let guestTitleRoiTrend: Array<{ title: string; date: string; roi: number }> = [];
+let realTitleRoiTrend: Array<{ title: string; date: string; roi: number }> = [];
 
-let auditLogs: AuditLog[] = [
+let guestAuditLogs: AuditLog[] = [
   {
-    id: 'audit-1',
+    id: 'audit-guest-1',
     time: now,
     operatorName: 'system',
     actionType: ACTION_CREATE,
     module: MODULE_WEEKLY,
-    target: 'initial data',
+    target: 'mock initial data',
+    before: '-',
+    after: 'initialized',
+  },
+];
+let realAuditLogs: AuditLog[] = [
+  {
+    id: 'audit-real-1',
+    time: now,
+    operatorName: 'system',
+    actionType: ACTION_CREATE,
+    module: MODULE_WEEKLY,
+    target: 'company initial data',
     before: '-',
     after: 'initialized',
   },
@@ -198,41 +218,112 @@ function timestamp() {
   return dayjs().format('YYYY-MM-DD HH:mm:ss');
 }
 
-function canReadRealData() {
+type DataScope = 'guest' | 'real';
+
+function getDataScope(): DataScope | undefined {
   const user = getCurrentUserSync();
-  return user.status === 'approved' || user.isAdmin;
+  if (user.status === 'approved' || user.isAdmin) return 'real';
+  if (user.status === 'guest') return 'guest';
+  return undefined;
 }
 
 function canReadAnyData() {
-  const user = getCurrentUserSync();
-  return user.status === 'guest' || canReadRealData();
+  return Boolean(getDataScope());
+}
+
+function requireDataScope(): DataScope {
+  const scope = getDataScope();
+  if (!scope) throw new Error('No permission to access dashboard data');
+  return scope;
 }
 
 function weeklyStore() {
-  return canReadRealData() ? realWeeklyRows : guestWeeklyRows;
+  return requireDataScope() === 'real' ? realWeeklyRows : guestWeeklyRows;
 }
 
 function setWeeklyStore(rows: WeeklyDelivery[]) {
-  if (canReadRealData()) realWeeklyRows = rows;
+  if (requireDataScope() === 'real') realWeeklyRows = rows;
   else guestWeeklyRows = rows;
 }
 
 function historyStore() {
-  return canReadRealData() ? realHistoryRows : guestHistoryRows;
+  return requireDataScope() === 'real' ? realHistoryRows : guestHistoryRows;
 }
 
 function setHistoryStore(rows: WeeklyDelivery[]) {
-  if (canReadRealData()) realHistoryRows = rows;
+  if (requireDataScope() === 'real') realHistoryRows = rows;
   else guestHistoryRows = rows;
 }
 
 function planStore() {
-  return canReadRealData() ? realPlans : guestPlans;
+  return requireDataScope() === 'real' ? realPlans : guestPlans;
 }
 
 function setPlanStore(rows: NextWeekPlan[]) {
-  if (canReadRealData()) realPlans = rows;
+  if (requireDataScope() === 'real') realPlans = rows;
   else guestPlans = rows;
+}
+
+function teacherStore() {
+  return requireDataScope() === 'real' ? realTeachers : guestTeachers;
+}
+
+function setTeacherStore(rows: Teacher[]) {
+  if (requireDataScope() === 'real') realTeachers = rows;
+  else guestTeachers = rows;
+}
+
+function versionStore() {
+  return requireDataScope() === 'real' ? realVersionRecords : guestVersionRecords;
+}
+
+function setVersionStore(rows: VersionRecord[]) {
+  if (requireDataScope() === 'real') realVersionRecords = rows;
+  else guestVersionRecords = rows;
+}
+
+function auditStore() {
+  return requireDataScope() === 'real' ? realAuditLogs : guestAuditLogs;
+}
+
+function setAuditStore(rows: AuditLog[]) {
+  if (requireDataScope() === 'real') realAuditLogs = rows;
+  else guestAuditLogs = rows;
+}
+
+function accountLevelRuleStore() {
+  return requireDataScope() === 'real'
+    ? realAccountLevelRules
+    : guestAccountLevelRules;
+}
+
+function titleRoiTrendStore() {
+  return requireDataScope() === 'real' ? realTitleRoiTrend : guestTitleRoiTrend;
+}
+
+function setTitleRoiTrendStore(
+  rows: Array<{ title: string; date: string; roi: number }>,
+) {
+  if (requireDataScope() === 'real') realTitleRoiTrend = rows;
+  else guestTitleRoiTrend = rows;
+}
+
+function nextUploadVersionNo() {
+  if (requireDataScope() === 'real') {
+    realUploadVersionNo += 1;
+    return realUploadVersionNo;
+  }
+  guestUploadVersionNo += 1;
+  return guestUploadVersionNo;
+}
+
+function nextArchivePeriodNo() {
+  if (requireDataScope() === 'real') {
+    realArchivePeriodNo += 1;
+    return realArchivePeriodNo;
+  }
+  guestArchivePeriodNo += 1;
+  return guestArchivePeriodNo;
 }
 
 function stringifyAudit(value: unknown) {
@@ -248,7 +339,7 @@ function writeAudit(
   before: unknown,
   after: unknown,
 ) {
-  auditLogs = [
+  setAuditStore([
     {
       id: `audit-${Date.now()}-${Math.random()}`,
       time: timestamp(),
@@ -259,8 +350,8 @@ function writeAudit(
       before: stringifyAudit(before),
       after: stringifyAudit(after),
     },
-    ...auditLogs,
-  ];
+    ...auditStore(),
+  ]);
 }
 
 function writeVersion(
@@ -272,7 +363,7 @@ function writeVersion(
   after: unknown,
   meta?: Partial<VersionRecord>,
 ) {
-  versionRecords = [
+  setVersionStore([
     {
       id: `version-${Date.now()}-${Math.random()}`,
       module,
@@ -284,8 +375,8 @@ function writeVersion(
       after: stringifyAudit(after),
       ...meta,
     },
-    ...versionRecords,
-  ];
+    ...versionStore(),
+  ]);
 }
 
 function withUpdate<T extends { updatedBy: string; updatedAt: string }>(
@@ -339,15 +430,16 @@ function getAllHistoryViews() {
 
 export async function getTeachers() {
   await delay(120);
-  return [...teachers];
+  if (!canReadAnyData()) return [];
+  return [...teacherStore()];
 }
 
 export async function addTeacher(name: string, operatorName: string) {
   await delay();
   const teacher = { id: `teacher-${Date.now()}`, name };
-  teachers = [...teachers, teacher];
+  setTeacherStore([...teacherStore(), teacher]);
   writeAudit(operatorName, ACTION_CREATE, MODULE_TEACHER, name, '-', teacher);
-  return [...teachers];
+  return [...teacherStore()];
 }
 
 export async function renameTeacher(
@@ -356,12 +448,15 @@ export async function renameTeacher(
   operatorName: string,
 ) {
   await delay();
-  const before = teachers.find((teacher) => teacher.id === teacherId);
-  teachers = teachers.map((teacher) =>
-    teacher.id === teacherId ? { ...teacher, name } : teacher,
+  const rows = teacherStore();
+  const before = rows.find((teacher) => teacher.id === teacherId);
+  setTeacherStore(
+    rows.map((teacher) =>
+      teacher.id === teacherId ? { ...teacher, name } : teacher,
+    ),
   );
   writeAudit(operatorName, ACTION_UPDATE, MODULE_TEACHER, name, before ?? '-', name);
-  return [...teachers];
+  return [...teacherStore()];
 }
 
 function getDateRangeBounds({ startDate, endDate }: DateRangeFilter) {
@@ -538,8 +633,7 @@ export async function commitStandardExcelUpload(
   if (preview.missingFields.length > 0) throw new Error('模板字段不完整');
   if (preview.errors.length > 0) throw new Error('存在错误行，无法导入');
 
-  uploadVersionNo += 1;
-  const versionNo = uploadVersionNo;
+  const versionNo = nextUploadVersionNo();
   const uploadedAt = timestamp();
 
   if (preview.kind === 'weekly') {
@@ -585,8 +679,7 @@ export async function uploadExcelDataSource(
   return { ...result, sourceType };
   await delay();
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
-  uploadVersionNo += 1;
-  const versionNo = uploadVersionNo;
+  const versionNo = nextUploadVersionNo();
   const uploadedAt = timestamp();
   let importedRows = 0;
   const importedWeeklyRows: WeeklyDelivery[] = [];
@@ -603,14 +696,16 @@ export async function uploadExcelDataSource(
       rows.forEach((row) => {
         const accountName = stringValue(row, ['账号', '账号名称', '公众号', '公众号名称', 'account']);
         const accountLevel = stringValue(row, ['账号等级', '等级', '评估等级', 'level']);
-        if (accountName && accountLevel) accountLevelRules.set(accountName, accountLevel);
+        if (accountName && accountLevel) {
+          accountLevelRuleStore().set(accountName, accountLevel);
+        }
       });
     } else if (sourceType === 'officialAccount' && sheetName.includes('标题ROI波动')) {
-      titleRoiTrend = rows.map((row) => ({
+      setTitleRoiTrendStore(rows.map((row) => ({
         title: stringValue(row, ['标题', '文章标题', '投放标题', 'title']) ?? 'Untitled',
         date: stringValue(row, ['日期', '时间', '发文时间', 'date']) || sheetName,
         roi: numberValue(row, ['ROI', 'roi']),
-      }));
+      })));
     } else {
       const weeklyRows = rows.map((row, index) =>
         excelRowToWeekly(row, sheetName, index, operatorName, uploadedAt),
@@ -655,8 +750,7 @@ export async function uploadDataFile(
   }
 
   await delay();
-  uploadVersionNo += 1;
-  const versionNo = uploadVersionNo;
+  const versionNo = nextUploadVersionNo();
   const uploadedAt = timestamp();
 
   if (sourceType === 'csv') {
@@ -729,8 +823,10 @@ export async function updatePeriod(operatorName: string): Promise<PeriodUpdateRe
   if (invalidPlan) {
     throw new Error(`下期投放“${invalidPlan.accountName}”的计划日期无效，请先修正`);
   }
+  const archivePeriodNo = nextArchivePeriodNo();
   const archivedRows = currentRows.map((row) => ({
     ...row,
+    archivePeriodNo,
     updatedBy: operatorName,
     updatedAt,
   }));
@@ -772,7 +868,7 @@ export async function updatePeriod(operatorName: string): Promise<PeriodUpdateRe
   setWeeklyStore(promotedRows);
   setPlanStore([]);
 
-  const versionNo = ++uploadVersionNo;
+  const versionNo = nextUploadVersionNo();
   writeVersion(
     MODULE_HISTORY,
     `period-update-${versionNo}`,
@@ -914,6 +1010,23 @@ export async function getHistorySummary(
   dateRange?: DateRangeFilter,
 ): Promise<HistorySummary> {
   await delay();
+  if (!canReadAnyData()) {
+    return {
+      kpi: {
+        totalSpendAmount: 0,
+        totalLeads: 0,
+        totalDeals: 0,
+        overallRoi: 0,
+        averageLeadCost: 0,
+      },
+      accountPerformance: [],
+      periodAccountPerformance: [],
+      roiTrend: [],
+      leadCostTrend: [],
+    };
+  }
+  const titleRoiTrend = titleRoiTrendStore();
+  const accountLevelRules = accountLevelRuleStore();
   const rows = filterByDateRange(
     getAllHistoryViews(),
     dateRange,
@@ -924,19 +1037,26 @@ export async function getHistorySummary(
     dateRange,
     (item) => item.date,
   );
-  const accountMap = new Map<string, WeeklyDeliveryView[]>();
-  rows.forEach((row) => {
-    accountMap.set(row.accountName, [...(accountMap.get(row.accountName) ?? []), row]);
-  });
-  const accountPerformance: AccountPerformance[] = [...accountMap.entries()].map(
-    ([accountName, list], index) => {
+  const buildAccountPerformance = (
+    entries: Array<[string, WeeklyDeliveryView[]]>,
+    withPeriod = false,
+  ): AccountPerformance[] =>
+    entries.map(([groupKey, list], index) => {
+      const accountName = withPeriod
+        ? groupKey.slice(groupKey.indexOf('\u0000') + 1)
+        : groupKey;
       const totalSpendAmount = sum(list, 'spendAmount');
       const totalReadCount = sum(list, 'adReadCount');
       const totalLeads = sum(list, 'wechatAdds');
       const totalDeals = sum(list, 'dealCount');
       const dealAmount = sum(list, 'dealAmount');
       return {
-        id: `perf-${index}`,
+        id: `${withPeriod ? 'period-perf' : 'perf'}-${index}`,
+        periodLabel: withPeriod
+          ? list[0].archivePeriodNo
+            ? `第${list[0].archivePeriodNo}期`
+            : '当前期'
+          : undefined,
         accountName,
         accountLevel:
           accountLevelRules.get(accountName) ??
@@ -952,7 +1072,22 @@ export async function getHistorySummary(
         totalDeals,
         totalSpendAmount,
       };
-    },
+    });
+
+  const accountMap = new Map<string, WeeklyDeliveryView[]>();
+  const periodAccountMap = new Map<string, WeeklyDeliveryView[]>();
+  rows.forEach((row) => {
+    accountMap.set(row.accountName, [...(accountMap.get(row.accountName) ?? []), row]);
+    const periodKey = row.archivePeriodNo
+      ? `第${row.archivePeriodNo}期`
+      : '当前期';
+    const groupKey = `${periodKey}\u0000${row.accountName}`;
+    periodAccountMap.set(groupKey, [...(periodAccountMap.get(groupKey) ?? []), row]);
+  });
+  const accountPerformance = buildAccountPerformance([...accountMap.entries()]);
+  const periodAccountPerformance = buildAccountPerformance(
+    [...periodAccountMap.entries()],
+    true,
   );
   const totalSpendAmount = sum(rows, 'spendAmount');
   const totalLeads = sum(rows, 'wechatAdds');
@@ -967,6 +1102,7 @@ export async function getHistorySummary(
       averageLeadCost: totalSpendAmount / Math.max(totalLeads, 1),
     },
     accountPerformance,
+    periodAccountPerformance,
     roiTrend:
       titleRoiTrend.length > 0
         ? filteredTitleRoiTrend.map((item) => ({ date: item.date, value: item.roi }))
@@ -977,14 +1113,16 @@ export async function getHistorySummary(
 
 export async function getAuditLogs() {
   await delay();
-  return canReadAnyData() ? [...auditLogs] : [];
+  return canReadAnyData() ? [...auditStore()] : [];
 }
 
 export async function getVersionRecords(targetId?: string) {
   await delay();
+  if (!canReadAnyData()) return [];
+  const rows = versionStore();
   return targetId
-    ? versionRecords.filter((record) => record.targetId === targetId)
-    : [...versionRecords];
+    ? rows.filter((record) => record.targetId === targetId)
+    : [...rows];
 }
 
 export async function mockGetDashboardTabData(

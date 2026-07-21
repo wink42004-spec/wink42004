@@ -14,6 +14,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LineChart } from '../components/LineChart';
+import { useAuthContext } from '../context/AuthContext';
 import { getHistoryDetails, getHistorySummary } from '../services/historyService';
 import {
   exportVersionRecordsCsv,
@@ -62,6 +63,7 @@ interface HistoryTabProps {
 }
 
 export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
+  const { currentUser } = useAuthContext();
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [summary, setSummary] = useState<HistorySummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -102,7 +104,7 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
     return () => {
       active = false;
     };
-  }, [dataRevision, dateFilter]);
+  }, [currentUser.id, dataRevision, dateFilter]);
 
   const openDetails = useCallback(
     async (accountName: string) => {
@@ -124,6 +126,12 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
     setDetails([]);
   }, []);
 
+  useEffect(() => {
+    closeDetails();
+    setVersionOpen(false);
+    setVersionRows([]);
+  }, [closeDetails, currentUser.id]);
+
   const openVersions = async () => {
     const rows = await getVersionRecords();
     setVersionRows(rows.filter((row) => row.module === '历史汇总' || row.sheetName));
@@ -132,6 +140,20 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
 
   const columns = useMemo<ColumnsType<AccountPerformance>>(
     () => [
+      {
+        title: '所属期次',
+        dataIndex: 'periodLabel',
+        align: 'center',
+        sorter: (a, b) => {
+          const periodNo = (value?: string) => {
+            if (value === '当前期') return Number.MAX_SAFE_INTEGER;
+            return Number(value?.match(/\d+/)?.[0] ?? 0);
+          };
+          return periodNo(a.periodLabel) - periodNo(b.periodLabel);
+        },
+        fixed: 'left',
+        width: 110,
+      },
       {
         title: '账号名称',
         dataIndex: 'accountName',
@@ -206,6 +228,7 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
       {
         title: '总成交量',
         dataIndex: 'totalDeals',
+        align: 'center',
         sorter: (a, b) => a.totalDeals - b.totalDeals,
         width: 120,
       },
@@ -290,10 +313,10 @@ export function HistoryTab({ dataRevision = 0 }: HistoryTabProps) {
         </div>
         <Table
           columns={columns}
-          dataSource={summary.accountPerformance}
+          dataSource={summary.periodAccountPerformance}
           loading={loading}
           rowKey="id"
-          scroll={{ x: 1500 }}
+          scroll={{ x: 1610 }}
         />
       </section>
       <div className="history-chart-grid">

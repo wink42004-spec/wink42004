@@ -48,6 +48,7 @@ export interface WeeklyDelivery extends AuditFields {
   id: string;
   teacherId?: string;
   period?: string;
+  archivePeriodNo?: number;
   weekStartDate: string;
   accountName: string;
   paymentChannel?: string;
@@ -100,6 +101,7 @@ export interface NextWeekPlan extends AuditFields {
 export interface AccountPerformance {
   id: string;
   teacherId?: string;
+  periodLabel?: string;
   accountName: string;
   accountLevel: string;
   cooperationCount: number;
@@ -128,6 +130,7 @@ export interface HistorySummary {
     averageLeadCost: number;
   };
   accountPerformance: AccountPerformance[];
+  periodAccountPerformance: AccountPerformance[];
   roiTrend: TrendPoint[];
   leadCostTrend: TrendPoint[];
 }

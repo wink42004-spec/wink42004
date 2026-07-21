@@ -2,6 +2,7 @@ import { DatePicker, Select, Space, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
+import { useAuthContext } from '../context/AuthContext';
 import { getAuditLogs } from '../services/mockApi';
 import type { AuditLog } from '../types/shared';
 
@@ -10,13 +11,14 @@ interface AuditLogTabProps {
 }
 
 export function AuditLogTab({ dataRevision = 0 }: AuditLogTabProps) {
+  const { currentUser } = useAuthContext();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [actionType, setActionType] = useState<string>();
   const [date, setDate] = useState<Dayjs | null>(null);
 
   useEffect(() => {
     void getAuditLogs().then(setLogs);
-  }, [dataRevision]);
+  }, [currentUser.id, dataRevision]);
 
   const filteredLogs = useMemo(
     () =>
